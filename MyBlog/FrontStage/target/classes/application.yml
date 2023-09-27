@@ -1,0 +1,29 @@
+server:
+  port: 7777
+
+spring:
+  #DB connection conf
+  datasource:
+    url: jdbc:mysql://localhost:3306/sg_blog?characterEncoding=utf-8
+    username: root
+    password: zhongqing922
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  servlet:
+    #file uploading
+    multipart:
+      #max size of single file
+      max-file-size: 20MB
+      #total size of all the files in HTTP request
+      max-request-size: 20MB
+
+mybatis-plus:
+  configuration:
+    #log: for printing log
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      logic-delete-field: delFlag
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+      id-type: auto
