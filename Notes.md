@@ -256,7 +256,7 @@
 ## EasyCode Plugin
 
 
-## Database praparation 
+## Database preparation 
 ##### 1. Creating application.yml under resources package under Frontstage Module
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/7ca1a705-d3c1-4487-849d-e7116c8be5c2)
@@ -302,7 +302,7 @@ mybatis-plus:
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/50be3461-113d-4d92-b430-97d34b2fa436)
 
-## Code praparation
+## Code preparation
 >focus on one table - "article" - to test connection 
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/4574dd1f-6f13-4847-bdde-7d287d91ec91)
@@ -476,3 +476,11 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper,Article> imple
 
 - Result from browser indicate connection successful
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/bc083dd6-0670-49f1-9575-1e83c45ce195)
+
+## Interface design 
+### 1. Requirement analysis 
+- The function I am focusing here is the trending article list in a article page
+- I need to find information about the top 10 most viewed articles and show the title of the article and the number of views. Users should be allowed to click to jump to specific article details for browsing.
+- Note: Draft and deleted articles can not be shown. Sort in descending order by the number of views
+
+## Uniform response format 
