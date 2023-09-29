@@ -11,9 +11,9 @@
  - **Database**: MySQL
  - **Module Mngmt**: Maven 3.9.3
 
-## Project Construction
+## 1. Project Construction
 
-#### 1. Creating parent module
+#### 1.1 Creating parent module
 - Creating new Maven project "MyBlog" in IDEA, and put it  in D disk .
 - Modify maven configuration
 
@@ -127,7 +127,7 @@
 ```
 
 
-#### 2. Creating submodules
+#### 1.2 Creating submodules
 *Three Submodules*
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/cd7a1bc3-4a5a-4efb-b2f0-d886eee44ab9)
@@ -253,11 +253,9 @@
 </project>
 ```
 
-## EasyCode Plugin
 
-
-## Database preparation 
-#### 1. Creating application.yml under resources package under Frontstage Module
+#### 1.3 Database preparation 
+##### 1.3.1 Creating application.yml under resources package under Frontstage Module
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/7ca1a705-d3c1-4487-849d-e7116c8be5c2)
 
@@ -294,20 +292,20 @@ mybatis-plus:
       id-type: auto
 ```
 
-#### 2. Test Connection 
+##### 1.3.2 Test Connection 
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/849d460c-7c9b-436d-be77-b88fc5abb5d8)
 
-#### 3. Run SQL script files 
+##### 1.3.3 Run SQL script files 
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/50be3461-113d-4d92-b430-97d34b2fa436)
 
-## Code preparation
+#### 1.4 Code preparation
 >focus on one table - "article" - to test connection 
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/4574dd1f-6f13-4847-bdde-7d287d91ec91)
 
-#### 1. Frontstage module
+##### 1.4.1 Frontstage module
 - Launch class
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/568ac692-f131-4671-b6da-f39628c4c387)
@@ -364,7 +362,7 @@ public class ArticleController {
 
 ```
 
-#### 2. Shared module 
+##### 1.4.2 Shared module 
 - Create article entity class, mapper for article, service and its implementation for article 
 
 *Article entity class - using EasyCode to generate*
@@ -466,8 +464,8 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper,Article> imple
 }
 ```
 
-## Milestone Test (MyBatisPlus)
-#### Run the launch class "BlogApplication" in Frontstage module to test connection
+#### 1.5 Milestone Test (MyBatisPlus)
+##### Run the launch class "BlogApplication" in Frontstage module to test connection
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/e144eb43-7b40-428d-b6d8-757d595cd283)
 
@@ -477,14 +475,16 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper,Article> imple
 - Result from browser indicate connection successful
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/bc083dd6-0670-49f1-9575-1e83c45ce195)
 
-## Interface design 
-#### Requirement analysis - Hot article list
+## 2. Hot article list 
+
+#### 2.1 Requirement analysis 
 - The function I am focusing here is the hot article list in a article page
 - I need to find information about the top 10 most viewed articles and show the title of the article and the number of views. Users should be allowed to click to jump to specific article details for browsing.
 - Note: Draft and deleted articles can not be shown. Sort in descending order by the number of views
 
-## Unify response format 
-#### Code preparation
+#### 2.2 Interface Design
+#### 2.3 Unify response format 
+- Code preparation
 - In the shared module, create AppHttpCodeEnum class for further usage by frontstage and backstage. Its function is to encapsulate "code" and "message"
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/ef30e750-57a3-49f7-9cac-236ffcbba998)
@@ -649,9 +649,8 @@ public class ResponseResult<T> implements Serializable {
 }
 ```
 
-## Basic Code Implementation - Hot article list
+#### 2.4 Basic Code Implementation
 
-#### 
 - Create hotArticleList function in ArticleController class, and use a corresponding function in ArticleService to return a ResponseResult
 _ArticleController_
 
@@ -702,7 +701,7 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper,Article> imple
 }
 ```
 
-#### Test unified response result
+#### 2.5 Test unified response result
 Input the following web link to test
 > http://localhost:7777/article/hotArticleList
 
@@ -710,7 +709,7 @@ Input the following web link to test
 
 Test successful.
 
-#### Cross-origin issue (CORS)
+#### 2.6 Cross-origin issue (CORS)
 - Create WebConfig class to solve cross-domain issue with following code under shared module
 
 ```java
@@ -739,16 +738,16 @@ public class WebConfig implements WebMvcConfigurer {
 }
 ```
 
-#### Initialize frontend project 
-##### 1. Download Node.js into the computer
+#### 2.7 Initialize frontend project 
+1. Download Node.js into the computer
 > https://cowtransfer.com/s/d76a70e4b02c4f
 
-##### 2. Create a new folder and download the frontend code using the following link
+2. Create a new folder and download the frontend code using the following link
 >https://cowtransfer.com/s/6a767bb5059c4d
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/bee49fc7-f11a-4558-9cf8-d92020efb48f)
 
-##### 3. Open cmd as administrator,use the following command to run the frontend project
+3. Open cmd as administrator,use the following command to run the frontend project
 
 ```xml
 d:
@@ -761,15 +760,134 @@ npm run dev
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/ea55b661-5c64-4299-aacd-c7ed482dfbc7)
 
-##### 4. Access to frontend project
+4. Access to frontend project
 
 >http://localhost:8080/#/DetailArticle?aid=1
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/3c2431e4-8488-4612-a40e-58367f7fb197)
 
-##### 5. Coordination between frontend and backend 
+5. Coordination between frontend and backend 
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/a9b797f5-c79d-4bdc-be2d-21040c305bf5)
+
+#### 2.7 VO Optimization
+- Reason: when return a list of 10 articles as hot articles from database to frontstage web page, all columns/attributes of an article are returned, which is not neccessary for a request like hot article list.
+- Expected: use a new article class to encapsulate data that frontstage content needs, ignore those it does not need
+1. create HotArticleVo under domain package of shared module
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/01521020-6756-4083-a59e-c548f27813b1)
+
+```java
+package com.js.domain.vo;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class HotArticleVo {
+
+    private Long id;
+    private String title;
+    private Long viewCount;
+}
+```
+
+2. Modify the return value of ResponseReult, use bean copy to change article to articleVo that encapsulate certain attributes (id, title, viewcount)
+```java
+ //bean copy
+        List<HotArticleVo> articleVos =new ArrayList<>();
+        for(Article article:articles){
+            HotArticleVo articleVo = new HotArticleVo();
+            BeanUtils.copyProperties(article,articleVo);
+            articleVos.add(articleVo);
+        }
+
+        return ResponseResult.okResult(articleVos);
+```
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/b477b6f2-11e0-4a68-959a-6143cc2c722a)
+
+#### 2.8 Constant management
+- Reason: It is not allowed in real projects to use literal value, constant definition is required to enhance the maintainability of the project.
+
+1. Create SystemConstants class to manage constants in a centralized way.
+
+```java
+package com.js.constants;
+
+public class SystemConstants {
+
+    //article is script
+    public static final int ARTICLE_STATUS_DRAFT = 1;
+
+    //article is completed
+    public static final int ARTICLE_STATUS_NORMAL = 0;
+}
+```
+
+2. Directly use constant definition to indicate completed article
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/18eaada0-ae9e-489a-828f-4d091face773)
+
+## 3. Bean Copy Util 
+- Bean copy will be universally used when it comes to interface implementations. As a result, encapsulate the bean copy method into a class for further usage.
+
+- Create a BeanCopyUtil class under Utils package of shared module
+  
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/5d55b8d9-7879-48f2-acc0-280911c5d6eb)
+
+
+```java
+package com.js.Utils;
+
+import org.springframework.beans.BeanUtils;
+import java.util.List;
+import java.util.stream.Collectors;
+
+public class BeanCopyUtil {
+
+    private BeanCopyUtil(){
+
+    }
+
+    //Application of Generics
+    public static <V> V copyBean(Object source, Class<V> clas){
+
+        V result = null;
+
+        try {
+
+            //create targeted instance using class
+            result = clas.newInstance();
+
+            //realize attributes copy
+            BeanUtils.copyProperties(source,result);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        //return result
+        return result;
+    }
+
+    public static <O,V> List<V> copyBeanList(List<O> list, Class<V> clas){
+        return list.stream()
+                .map(o -> copyBean(o,clas))
+                .collect(Collectors.toList());
+
+    }
+}
+```
+
+- Modify the copy bean proccess in ArticleServiceImpl, use the CopyBeanList method created
+
+  ![image](https://github.com/LavaXD/MyBlog/assets/103249988/81b15246-728b-4d3c-bed9-b12272871a7f)
+
+  
 
 
 
