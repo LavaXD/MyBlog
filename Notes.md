@@ -257,7 +257,7 @@
 
 
 ## Database preparation 
-##### 1. Creating application.yml under resources package under Frontstage Module
+#### 1. Creating application.yml under resources package under Frontstage Module
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/7ca1a705-d3c1-4487-849d-e7116c8be5c2)
 
@@ -294,11 +294,11 @@ mybatis-plus:
       id-type: auto
 ```
 
-##### 2. Test Connection 
+#### 2. Test Connection 
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/849d460c-7c9b-436d-be77-b88fc5abb5d8)
 
-##### 3. Run SQL script files 
+#### 3. Run SQL script files 
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/50be3461-113d-4d92-b430-97d34b2fa436)
 
@@ -307,7 +307,7 @@ mybatis-plus:
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/4574dd1f-6f13-4847-bdde-7d287d91ec91)
 
-##### 1. Frontstage module
+#### 1. Frontstage module
 - Launch class
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/568ac692-f131-4671-b6da-f39628c4c387)
@@ -364,7 +364,7 @@ public class ArticleController {
 
 ```
 
-##### 2. Shared module 
+#### 2. Shared module 
 - Create article entity class, mapper for article, service and its implementation for article 
 
 *Article entity class - using EasyCode to generate*
@@ -467,7 +467,7 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper,Article> imple
 ```
 
 ## Milestone Test (MyBatisPlus)
-- Run the launch class "BlogApplication" in Frontstage module to test connection
+#### Run the launch class "BlogApplication" in Frontstage module to test connection
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/e144eb43-7b40-428d-b6d8-757d595cd283)
 
@@ -478,13 +478,13 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper,Article> imple
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/bc083dd6-0670-49f1-9575-1e83c45ce195)
 
 ## Interface design 
-### Requirement analysis - Hot article list
+#### Requirement analysis - Hot article list
 - The function I am focusing here is the hot article list in a article page
 - I need to find information about the top 10 most viewed articles and show the title of the article and the number of views. Users should be allowed to click to jump to specific article details for browsing.
 - Note: Draft and deleted articles can not be shown. Sort in descending order by the number of views
 
 ## Unify response format 
-### Code preparation
+#### Code preparation
 - In the shared module, create AppHttpCodeEnum class for further usage by frontstage and backstage. Its function is to encapsulate "code" and "message"
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/ef30e750-57a3-49f7-9cac-236ffcbba998)
@@ -710,7 +710,7 @@ Input the following web link to test
 
 Test successful.
 
-### Cross-origin issue (CORS)
+#### Cross-origin issue (CORS)
 - Create WebConfig class to solve cross-domain issue with following code under shared module
 
 ```java
@@ -739,16 +739,16 @@ public class WebConfig implements WebMvcConfigurer {
 }
 ```
 
-### Initialize frontend project 
-1. Download Node.js into the computer
+#### Initialize frontend project 
+##### 1. Download Node.js into the computer
 > https://cowtransfer.com/s/d76a70e4b02c4f
 
-2. Create a new folder and download the frontend code using the following link
+##### 2. Create a new folder and download the frontend code using the following link
 >https://cowtransfer.com/s/6a767bb5059c4d
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/bee49fc7-f11a-4558-9cf8-d92020efb48f)
 
-3. Open cmd as administrator,use the following command to run the frontend project
+##### 3. Open cmd as administrator,use the following command to run the frontend project
 
 ```xml
 d:
@@ -761,13 +761,13 @@ npm run dev
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/ea55b661-5c64-4299-aacd-c7ed482dfbc7)
 
-4. Access to frontend project
+##### 4. Access to frontend project
 
 >http://localhost:8080/#/DetailArticle?aid=1
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/3c2431e4-8488-4612-a40e-58367f7fb197)
 
-5. Coordination between frontend and backend 
+##### 5. Coordination between frontend and backend 
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/a9b797f5-c79d-4bdc-be2d-21040c305bf5)
 
