@@ -466,7 +466,7 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper,Article> imple
 }
 ```
 
-## Milestone Test
+## Milestone Test (MyBatisPlus)
 - Run the launch class "BlogApplication" in Frontstage module to test connection
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/e144eb43-7b40-428d-b6d8-757d595cd283)
@@ -478,9 +478,299 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper,Article> imple
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/bc083dd6-0670-49f1-9575-1e83c45ce195)
 
 ## Interface design 
-### 1. Requirement analysis 
-- The function I am focusing here is the trending article list in a article page
+### Requirement analysis - Hot article list
+- The function I am focusing here is the hot article list in a article page
 - I need to find information about the top 10 most viewed articles and show the title of the article and the number of views. Users should be allowed to click to jump to specific article details for browsing.
 - Note: Draft and deleted articles can not be shown. Sort in descending order by the number of views
 
-## Uniform response format 
+## Unify response format 
+### Code preparation
+- In the shared module, create AppHttpCodeEnum class for further usage by frontstage and backstage. Its function is to encapsulate "code" and "message"
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/ef30e750-57a3-49f7-9cac-236ffcbba998)
+
+
+```java
+package com.js.enums;
+public enum AppHttpCodeEnum {
+    // success
+    SUCCESS(200,"operation success"),
+    // login
+    NEED_LOGIN(401,"require login"),
+    NO_OPERATOR_AUTH(403,"no operation authority"),
+    SYSTEM_ERROR(500,"system error"),
+    USERNAME_EXIST(501,"username already existed"),
+    PHONENUMBER_EXIST(502,"phone number already existed"), EMAIL_EXIST(503, "email already existed"),
+    REQUIRE_USERNAME(504, "require username"),
+    LOGIN_ERROR(505,"The user name or password is incorrect");
+    int code;
+    String msg;
+
+    AppHttpCodeEnum(int code, String errorMessage){
+        this.code = code;
+        this.msg = errorMessage;
+    }
+
+    public int getCode() {
+        return code;
+    }
+
+    public String getMsg() {
+        return msg;
+    }
+}
+```
+
+- In the shared module, create _ResponseResult_ class as the unified response format class
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/54ef5703-71ad-4fca-a2dc-a283805ebc7c)
+
+```java
+package com.js.domain;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.js.enums.AppHttpCodeEnum;
+
+import java.io.Serializable;
+
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class ResponseResult<T> implements Serializable {
+
+    private Integer code;
+    private String msg;
+    private T data;
+
+    public ResponseResult(){
+        this.code = AppHttpCodeEnum.SUCCESS.getCode();
+        this.msg = AppHttpCodeEnum.SUCCESS.getMsg();
+    }
+
+    public ResponseResult(Integer code, T data){
+        this.code = code;
+        this.data = data;
+    }
+
+    public ResponseResult(Integer code, T data, String msg){
+        this.code = code;
+        this.data = data;
+        this.msg = msg;
+    }
+
+    public ResponseResult(String msg, Integer code){
+        this.code = code;
+        this.msg = msg;
+    }
+
+    public static ResponseResult errorResult(int code, String msg) {
+        ResponseResult result = new ResponseResult();
+        return result.error(code, msg);
+    }
+    public static ResponseResult okResult() {
+        ResponseResult result = new ResponseResult();
+        return result;
+    }
+    public static ResponseResult okResult(int code, String msg) {
+        ResponseResult result = new ResponseResult();
+        return result.ok(code, null, msg);
+    }
+
+    public static ResponseResult okResult(Object data) {
+        ResponseResult result = setAppHttpCodeEnum(AppHttpCodeEnum.SUCCESS, AppHttpCodeEnum.SUCCESS.getMsg());
+        if(data!=null) {
+            result.setData(data);
+        }
+        return result;
+    }
+
+    public static ResponseResult errorResult(AppHttpCodeEnum enums){
+        return setAppHttpCodeEnum(enums,enums.getMsg());
+    }
+
+    public static ResponseResult errorResult(AppHttpCodeEnum enums, String msg){
+        return setAppHttpCodeEnum(enums,msg);
+    }
+
+    public static ResponseResult setAppHttpCodeEnum(AppHttpCodeEnum enums){
+        return okResult(enums.getCode(),enums.getMsg());
+    }
+
+    private static ResponseResult setAppHttpCodeEnum(AppHttpCodeEnum enums, String msg){
+        return okResult(enums.getCode(),msg);
+    }
+
+    public ResponseResult<?> error(Integer code, String msg) {
+        this.code = code;
+        this.msg = msg;
+        return this;
+    }
+
+    public ResponseResult<?> ok(Integer code, T data) {
+        this.code = code;
+        this.data = data;
+        return this;
+    }
+
+    public ResponseResult<?> ok(Integer code, T data, String msg) {
+        this.code = code;
+        this.data = data;
+        this.msg = msg;
+        return this;
+    }
+
+    public ResponseResult<?> ok(T data) {
+        this.data = data;
+        return this;
+    }
+
+    public Integer getCode() {
+        return code;
+    }
+
+    public void setCode(Integer code) {
+        this.code = code;
+    }
+
+    public String getMsg() {
+        return msg;
+    }
+
+    public void setMsg(String msg) {
+        this.msg = msg;
+    }
+
+    public T getData() {
+        return data;
+    }
+
+    public void setData(T data) {
+        this.data = data;
+    }
+
+}
+```
+
+## Basic Code Implementation - Hot article list
+
+#### 
+- Create hotArticleList function in ArticleController class, and use a corresponding function in ArticleService to return a ResponseResult
+_ArticleController_
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/fabe6d11-7f37-4c97-ae19-c38df1c1e5af)
+
+```java
+ @GetMapping("/hotArticleList")
+    public ResponseResult hotArticleList(){
+        //inquire hot article list, return responseResult
+        ResponseResult result = articleService.hotArticleList(); // use a function in service
+        return result;
+    }
+```
+
+- Create function in ArticleService and its implementation in ArticleServiceImpl
+
+_ArticleService_
+```java
+public interface ArticleService extends IService<Article> {
+    ResponseResult hotArticleList();
+}
+```
+
+_ArticleServiceImpl_
+
+```java
+@Service
+public class ArticleServiceImpl extends ServiceImpl<ArticleMapper,Article> implements ArticleService {
+    @Override
+    //inquire hot articles, return ResponseResult
+    public ResponseResult hotArticleList() {
+
+        LambdaQueryWrapper<Article> queryWrapper = new LambdaQueryWrapper<>();
+        //it has to be a completed, formal article
+        queryWrapper.eq(Article::getStatus,0);
+
+        //order by view count
+        queryWrapper.orderByDsc(Article::getViewCount);
+
+        //max hot articles amount: 10
+        Page<Article> page = new Page<>(1,10);
+        page(page,queryWrapper);
+
+        List<Article> articles = page.getRecords();
+
+        return ResponseResult.okResult(articles);
+    }
+}
+```
+
+#### Test unified response result
+Input the following web link to test
+> http://localhost:7777/article/hotArticleList
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/4eaa7a2f-b657-4eb5-a130-1319b3d655f2)
+
+Test successful.
+
+### Cross-origin issue (CORS)
+- Create WebConfig class to solve cross-domain issue with following code under shared module
+
+```java
+package com.js.config;
+
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+public class WebConfig implements WebMvcConfigurer {
+
+    @Override
+    public void addCorsMappings(CorsRegistry registry){
+        // config cross-domain path
+        registry.addMapping("/**")
+                // allowed request pattern
+                .allowedOriginPatterns("*")
+                // allow cookie or no
+                .allowCredentials(true)
+                // allowed request method
+                .allowedMethods("GET", "POST", "DELETE", "PUT")
+                // allowed header
+                .allowedHeaders("*")
+                // allowed time
+                .maxAge(3600);
+    }
+}
+```
+
+### Initialize frontend project 
+1. Download Node.js into the computer
+> https://cowtransfer.com/s/d76a70e4b02c4f
+
+2. Create a new folder and download the frontend code using the following link
+>https://cowtransfer.com/s/6a767bb5059c4d
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/bee49fc7-f11a-4558-9cf8-d92020efb48f)
+
+3. Open cmd as administrator,use the following command to run the frontend project
+
+```xml
+d:
+cd /SpringBootBlogWeb/js-blog-vue
+npm install
+npm run dev
+```
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/32fe5f4d-2c06-4f6c-9598-4cfff5001a8e)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/ea55b661-5c64-4299-aacd-c7ed482dfbc7)
+
+4. Access to frontend project
+
+>http://localhost:8080/#/DetailArticle?aid=1
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/3c2431e4-8488-4612-a40e-58367f7fb197)
+
+5. Coordination between frontend and backend 
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/a9b797f5-c79d-4bdc-be2d-21040c305bf5)
+
+
+
+
