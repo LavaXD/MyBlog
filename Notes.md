@@ -255,7 +255,8 @@
 
 
 #### 1.3 Database preparation 
-##### 1.3.1 Creating application.yml under resources package under Frontstage Module
+##### 1.3.1 application.yml
+- Creating application.yml under resources package under Frontstage Module
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/7ca1a705-d3c1-4487-849d-e7116c8be5c2)
 
@@ -465,7 +466,7 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper,Article> imple
 ```
 
 #### 1.5 Milestone Test (MyBatisPlus)
-##### Run the launch class "BlogApplication" in Frontstage module to test connection
+- Run the launch class "BlogApplication" in Frontstage module to test connection
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/e144eb43-7b40-428d-b6d8-757d595cd283)
 
