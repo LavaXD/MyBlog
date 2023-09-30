@@ -835,7 +835,7 @@ public class SystemConstants {
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/18eaada0-ae9e-489a-828f-4d091face773)
 
-## 3. Bean Copy Util 
+#### 2.9. Bean Copy Util 
 - Bean copy will be universally used when it comes to interface implementations. As a result, encapsulate the bean copy method into a class for further usage.
 
 - Create a BeanCopyUtil class under Utils package of shared module
@@ -891,6 +891,17 @@ public class BeanCopyUtil {
   ![image](https://github.com/LavaXD/MyBlog/assets/103249988/81b15246-728b-4d3c-bed9-b12272871a7f)
 
   
+## 3. Category Listings 
+#### 3.1 Requirement analysis
+- There is a category tab in the mian page, user can view all the articles in a certain category by clicking corresponding category
+- Only exhibit the category that has at least one article
+- Only exhibit the articles that are in normal status (completed)
+#### 3.2 Interface design
+- Consistent with interface that have been desigend in frontend development
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/685c5bd6-f3f4-45bb-8768-588740c7a2f2)
+
+#### 3.3 Code implementation 
 
 
 
