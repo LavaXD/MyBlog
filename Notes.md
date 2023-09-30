@@ -484,6 +484,8 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper,Article> imple
 - Note: Draft and deleted articles can not be shown. Sort in descending order by the number of views
 
 #### 2.2 Interface Design
+- Consistent with interface that have been desigend in frontend development
+
 #### 2.3 Unify response format 
 - Code preparation
 - In the shared module, create AppHttpCodeEnum class for further usage by frontstage and backstage. Its function is to encapsulate "code" and "message"
@@ -898,6 +900,8 @@ public class BeanCopyUtil {
 - Only exhibit the articles that are in normal status (completed)
 #### 3.2 Interface design
 - Consistent with interface that have been desigend in frontend development
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/ca0b9886-8f6a-47b3-9efd-a7c92c020768)
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/685c5bd6-f3f4-45bb-8768-588740c7a2f2)
 
