@@ -907,6 +907,280 @@ public class BeanCopyUtil {
 
 #### 3.3 Code implementation 
 
+- Create category entity, service, serviceImpl, dao (mapper) under shared module 
 
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/715a67ee-8149-4e1f-9d6d-4d3a5c692a9c)
+
+_Category entity_
+
+```java
+package com.js.domain.entity;
+
+import java.util.Date;
+
+import java.io.Serializable;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+
+@SuppressWarnings("serial")
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@TableName("category")
+public class Category  {
+    
+@TableId
+    private Long id;
+
+    
+
+    private String name;
+    
+
+    private Long pid;
+    
+
+    private String description;
+    
+
+    private String status;
+    
+
+    private Long createBy;
+    
+
+    private Date createTime;
+    
+
+    private Long updateBy;
+    
+
+    private Date updateTime;
+    
+
+    private Integer delFlag;
+    
+}
+```
+
+_Category service_
+
+```java
+package com.js.service;
+
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.js.domain.ResponseResult;
+
+
+public interface CategoryService extends IService<com.js.domain.entity.Category> {
+
+    ResponseResult getCategoryList();
+}
+```
+
+_Category serviceImpl_
+
+```java
+package com.js.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.js.Utils.BeanCopyUtil;
+import com.js.constants.SystemConstants;
+import com.js.domain.ResponseResult;
+import com.js.domain.entity.Article;
+import com.js.domain.vo.CategoryVo;
+import com.js.mapper.CategoryMapper;
+import com.js.service.ArticleService;
+import com.js.service.CategoryService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+
+@Service("categoryService")
+public class CategoryServiceImpl extends ServiceImpl<CategoryMapper, com.js.domain.Category> implements CategoryService {
+
+    @Autowired
+    private ArticleService articleService;
+
+    @Override
+    public ResponseResult getCategoryList() {
+
+        //inquire article table and get articles with normal status
+        LambdaQueryWrapper<Article> articleWrapper = new LambdaQueryWrapper<>();
+        articleWrapper.eq(Article::getStatus, SystemConstants.ARTICLE_STATUS_NORMAL);
+        List<Article> articleList = articleService.list(articleWrapper);
+
+        //get distinct category id
+        Set<Long> categoryIds = articleList.stream()
+                .map(article -> article.getCategoryId())
+                .collect(Collectors.toSet());
+
+
+        //inquire category table
+        List<com.js.entity.Category> categories = listByIds(categoryIds);
+
+        categories.stream()
+                .filter(category -> SystemConstants.STATUS_NORMAL.equals(category.getStatus()))
+                .collect(Collectors.toList());
+
+        //encapsulate vo
+        List<CategoryVo> categoryVos = BeanCopyUtil.copyBeanList(categories, CategoryVo.class);
+
+        return ResponseResult.okResult(categoryVos);
+    }
+}
+```
+
+_Category dao (mapper)_
+
+```java
+package com.js.mapper;
+
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+
+
+/**
+ * (Category)data access layer
+ *
+ * @author js
+ * @since 2023-10-02 19:41:57
+ */
+public interface CategoryMapper extends BaseMapper<com.js.domain.entity.Category> {
+
+}
+```
+
+_Category vo_
+
+```java
+package com.js.domain.vo;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class CategoryVo {
+
+    private Long id;
+    private String name;
+}
+```
+
+- Create category controller under frontstage module
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/258d6de4-469f-4559-9822-da7992cbbcb3)
+
+_Category controller_
+
+```java
+package com.js.controller;
+
+
+import com.js.domain.ResponseResult;
+import com.js.service.CategoryService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/category")
+public class CategoryController {
+
+    @Autowired
+    private CategoryService categoryService;
+
+    @GetMapping("/getCategoryList")
+    public ResponseResult getCategoryList(){
+        return categoryService.getCategoryList();
+    }
+
+}
+```
+
+- Input the following link in brower according to controller, result indicate successful 
+>http://localhost:7777/category/getCategoryList
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/690b7c31-0b1b-483b-a482-445c2e45caaa)
+
+
+## 4 Paging query 
+
+#### 4.1 Requirement analysis
+- Home page: Exhibit all articles 
+- Category page: Exhibit corresponding articles under specific category 
+- Only exhibit the articles whose status is normal (completed)
+- Those articles that are pinned must be shown at the top
+#### 4.2 Interface design
+- Consistent with interface that have been desigend in frontend development
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/3da02424-7250-418b-b231-f0ab0dd948c8)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/4356875e-1374-4923-8fda-2a80f7b9622e)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/90ab1051-0cb9-4292-a588-1700c95befe5)
+
+#### 4.3 Code implementation (detailed procedure)
+1. In articleController class, create a function called articleList
+
+2. Since controller class can not directly operate database, it calls a function from service class
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/ac3e8121-f5b8-4452-bd66-8aae6b3d987e)
+
+- Create a ArticleList function with parameters in service class 
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/f26f30f4-3c11-4cad-9b2a-399708b6fadf)
+
+3. Implement the "articleList" function in serviceImpl
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/312f1433-3b4a-470a-b30c-68efecf6cdf4)
+
+4. In serviceImpl class, clearify the to-do list according to the requirement list
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/a5a69a5b-3881-4683-b438-a94d28f3fdfd)
+
+5. Creating vo class for articleList
+- when creating articleList vo class, its attributes should be the same as the interface design from frontend 
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/e8c35cf9-4af6-4af8-a17c-367cb0e2fdd9)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/8d0549fc-e26d-4d8e-94da-cf34fec5d7d5)
+
+6. Creating vo class for page
+- since there are two more attributes in the demand: rows, total
+- So we need another vo class called pageVo
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/d3be232f-4c46-457d-a5c7-0a82266aa9e2)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/cea80260-c3e1-40f8-9c65-f111419eedc9)
+
+7. Implement the coding logic one by one 
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/53f01031-91b2-4628-bfd8-f8b8e4cfa890)
+
+8. Pagination inteceptor
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/70f4ad81-d577-4749-b858-3c69e9dc46e7)
+
+8. Input the following web link to test
+>http://localhost:7777/article/articleList?pageNum=1&pageSize=10
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/8beae168-ac14-45d7-b346-8ad407c9e20b)
+
+>http://localhost:7777/article/articleList?pageNum=1&pageSize=10&categoryId=2
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/0d6ef7ce-1b8c-4741-8b6f-673d109eed46)
 
 
