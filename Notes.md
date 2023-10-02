@@ -1174,7 +1174,7 @@ public class CategoryController {
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/70f4ad81-d577-4749-b858-3c69e9dc46e7)
 
-8. Input the following web link to test
+9. Input the following web link to test
 >http://localhost:7777/article/articleList?pageNum=1&pageSize=10
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/8beae168-ac14-45d7-b346-8ad407c9e20b)
@@ -1183,4 +1183,164 @@ public class CategoryController {
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/0d6ef7ce-1b8c-4741-8b6f-673d109eed46)
 
+10. FastJason configuration (manage time frame)
+
+```java
+//----------------------------------------------------- FastJson Config ---------------------------------------------------
+    @Bean//use @Bean import fastJsonHttpMessageConvert
+    public HttpMessageConverter fastJsonHttpMessageConverters() {
+        //1.define Convert instance
+        FastJsonHttpMessageConverter fastConverter = new FastJsonHttpMessageConverter();
+        FastJsonConfig fastJsonConfig = new FastJsonConfig();
+        fastJsonConfig.setSerializerFeatures(SerializerFeature.PrettyFormat);
+        fastJsonConfig.setDateFormat("yyyy-MM-dd HH:mm:ss");
+
+        SerializeConfig.globalInstance.put(Long.class, ToStringSerializer.instance);
+
+        fastJsonConfig.setSerializeConfig(SerializeConfig.globalInstance);
+        fastConverter.setFastJsonConfig(fastJsonConfig);
+        HttpMessageConverter<?> converter = fastConverter;
+        return converter;
+    }
+
+    @Override
+    //config msg converter
+    public void configureMessageConverters(List<HttpMessageConverter<?>> converters) {
+        //add msg converter
+        converters.add(fastJsonHttpMessageConverters());
+    }
+```
+**Result**
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/049c8a6d-e9aa-4dbc-a184-65636740ab85)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/20729c68-0980-4a9f-b5a8-c74173da97d5)
+
+## 5. Detailed content of article
+
+#### 5.1 Requirement analysis 
+
+- When user click on button "Read more", the web page should jump to another page that shows the detailed content of the article
+- Note: it is required to show the categoryName in the detailed content
+
+#### 5.2 Interface design 
+- Response format 
+```json
+{
+  "code": 200,
+  "data": {
+    "categoryId": "1",
+    "categoryName": "java",
+    "content": "detailed article content",
+    "createTime": "2022-01-23 23:20:11",
+    "id": "1",
+    "isComment": "0",
+    "title": "java language",
+    "viewCount": "114"
+  },
+  "msg": "operation success"
+}
+```
+- HTTP request format
+<table>
+  <tr>
+    <td>Request Format</td>
+    <td>Example</td>
+    <td>Description</td>
+  </tr>
+ <tr>
+    <td>Path parameter form</td>
+    <td>/articles/{id}</td>
+    <td>Parameter itself as a part of the URL</td>
+  </tr>
+ <tr>
+    <td>Query parameter form</td>
+    <td>/articles?id=1&num=1</td>
+    <td>With symbols like "?" "&" "=" in the URL to add filter conditions</td>
+  </tr>
+</table>
+- In the following service requests, Path parameter form will be used 
+
+#### 5.3 Code implementation 
+1. ArticleController
+
+```java
+@GetMapping("/{id}")
+    //Path parameter form is used here, so @PathVariable is used
+    public ResponseResult getArticleDetail(@PathVariable("id")Long id){
+
+        return articleService.getArticleDetail(id);
+    }
+```
+2. ArticleDetailVo
+
+```java
+package com.js.domain.vo;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.Date;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class ArticleDetailVo {
+
+    private Long id;
+
+    private String title;
+
+    private String content;
+
+    private String summary;
+
+    private Long categoryId;
+
+    private String categoryName;
+
+    private String thumbnail;
+
+    private Long viewCount;
+
+    private Date createTime;
+
+
+}
+```
+3. ArticleService & ServiceImpl
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/1e593653-12dc-4438-a345-79481aacbcda)
+
+```java
+//------------------------------------------------- ArticleDetail -------------------------------------------------------
+    @Override
+    public ResponseResult getArticleDetail(Long id) {
+
+        //inquire article by articleId
+        Article article = getById(id);
+
+        //convert to vo
+        ArticleDetailVo articleDetailVo = BeanCopyUtil.copyBean(article, ArticleDetailVo.class);
+
+        //inquire categoryName by categoryId
+        Long categoryId = articleDetailVo.getCategoryId();
+        Category category = categoryService.getById(categoryId);
+        if(category != null){
+            articleDetailVo.setCategoryName(category.getName());
+        }
+
+        //encapsulation and return
+        return ResponseResult.okResult(articleDetailVo);
+    }
+```
+
+4. Test
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/96a60300-ceec-4856-b893-2f851724bead)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/1b6d8940-e754-4499-8eec-d402412f7533)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/4b800894-f852-4dbb-9a9e-c673300dd0f4)
 
