@@ -476,7 +476,7 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper,Article> imple
 - Result from browser indicate connection successful
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/bc083dd6-0670-49f1-9575-1e83c45ce195)
 
-## 2. Hot article list 
+## 2. Blog FrontStage - Hot article list 
 
 #### 2.1 Requirement analysis 
 - The function I am focusing here is the hot article list in a article page
@@ -893,7 +893,7 @@ public class BeanCopyUtil {
   ![image](https://github.com/LavaXD/MyBlog/assets/103249988/81b15246-728b-4d3c-bed9-b12272871a7f)
 
   
-## 3. Category Listings 
+## 3. Blog FrontStage - Category Listings 
 #### 3.1 Requirement analysis
 - There is a category tab in the mian page, user can view all the articles in a certain category by clicking corresponding category
 - Only exhibit the category that has at least one article
@@ -1116,7 +1116,7 @@ public class CategoryController {
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/690b7c31-0b1b-483b-a482-445c2e45caaa)
 
 
-## 4 Paging query 
+## 4. Blog FrontStage - Paging query 
 
 #### 4.1 Requirement analysis
 - Home page: Exhibit all articles 
@@ -1216,7 +1216,7 @@ public class CategoryController {
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/20729c68-0980-4a9f-b5a8-c74173da97d5)
 
-## 5. Detailed content of article
+## 5. Blog FrontStage - Detailed content of article
 
 #### 5.1 Requirement analysis 
 
@@ -1241,12 +1241,15 @@ public class CategoryController {
   "msg": "operation success"
 }
 ```
+
 - HTTP request format
 <table>
   <tr>
-    <td>Request Format</td>
-    <td>Example</td>
-    <td>Description</td>
+    <td>
+   
+   **Request Format** </td>
+    <td>**Example**</td>
+    <td>**Description**</td>
   </tr>
  <tr>
     <td>Path parameter form</td>
@@ -1343,4 +1346,866 @@ public class ArticleDetailVo {
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/1b6d8940-e754-4499-8eec-d402412f7533)
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/4b800894-f852-4dbb-9a9e-c673300dd0f4)
+
+## 6. Blog FrontStage - Friend-link function
+#### 6.1 Requirement analysis 
+- Show friend link in friend-link page
+- Approval is needed before a friend link is shown
+
+#### 6.2 Interface design
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/f0cb0540-12c9-4caf-9e41-410e1bd5f9ca)
+
+<table>
+ <tr>
+  <td>
+   
+   **Request form**
+  </td>
+  <td>
+   
+   **Request path**
+  </td>
+ </tr>
+ <tr>
+  <td>Get</td>
+  <td>/link/GetAllLink</td>
+ </tr>
+</table>
+
+```json
+{
+  "code": 200,
+  "data": [
+    {
+      "address": "https://www.baidu.com",
+      "description": "sda",
+      "id": "1",
+      "logo": "picture url1",
+      "name": "sda"
+    },
+    {
+      "address": "https://www.qq.com",
+      "description": "dada",
+      "id": "2",
+      "logo": "picture url2",
+      "name": "sda"
+    }
+  ],
+  "msg": "operation success"
+}
+```
+
+#### 6.3 Code implementation
+1. Create _LinkController_
+
+```java
+package com.js.controller;
+
+import com.js.domain.ResponseResult;
+import com.js.service.LinkService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/link")
+public class LinkController {
+
+    @Autowired
+    private LinkService linkService;
+
+    @GetMapping("/getAllLink")
+    public ResponseResult getAllLink(){
+        return linkService.getAllLink();
+    }
+}
+```
+
+2. Create _LinkService_
+
+```java
+package com.js.service;
+
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.js.domain.ResponseResult;
+import com.js.domain.entity.Link;
+
+
+public interface LinkService extends IService<Link> {
+
+    ResponseResult getAllLink();
+}
+```
+
+3. Create _LinkEntity_
+
+```java
+package com.js.domain.entity;
+
+
+import java.util.Date;
+
+import java.io.Serializable;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+
+
+@SuppressWarnings("serial")
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@TableName("link")
+public class Link  {
+    
+@TableId
+    private Long id;
+
+
+    private String name;
+    
+
+    private String logo;
+    
+
+    private String description;
+    
+
+    private String address;
+    
+
+    private String status;
+    
+
+    private Long createBy;
+    
+
+    private Date createTime;
+    
+
+    private Long updateBy;
+    
+
+    private Date updateTime;
+    
+
+    private Integer delFlag;
+    
+}
+```
+
+
+4. Create _LinkVo_
+
+```java
+package com.js.domain.vo;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.Date;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class LinkVo {
+
+    private Long id;
+
+
+    private String name;
+
+
+    private String logo;
+
+
+    private String description;
+
+
+    private String address;
+
+}
+```
+
+
+5. Create _LinkServiceImpl_
+
+```java
+package com.js.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.js.Utils.BeanCopyUtil;
+import com.js.constants.SystemConstants;
+import com.js.domain.ResponseResult;
+import com.js.domain.entity.Link;
+import com.js.domain.vo.LinkVo;
+import com.js.mapper.LinkMapper;
+import com.js.service.LinkService;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+
+@Service("linkService")
+public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link> implements LinkService {
+
+    @Override
+    public ResponseResult getAllLink() {
+
+        //inquire all the friend link that have been approved
+        LambdaQueryWrapper<Link> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(Link::getStatus, SystemConstants.LINK_STATUS_NORMAL);
+        List<Link> links = list(queryWrapper);
+
+        //convert to vo
+        List<LinkVo> linkVos = BeanCopyUtil.copyBeanList(links, LinkVo.class);
+
+        //encapsulation and return
+        return ResponseResult.okResult(linkVos);
+    }
+}
+
+```
+
+6. Test
+
+- Input the following links to test
+
+>http://localhost:7777/link/getAllLink
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/1b2a619e-c09a-4844-84af-ed24438412ce)
+
+>http://localhost:8080/#/Friendslink
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/d712a608-a2ac-4502-bdb7-2ce27c70b00a)
+
+## 7. Blog FrontStage - Log in function
+
+#### 7.1 Requirement analysis
+- Given that the login function of both frontstage & backstage require certifiate anthority, so **SpringSecurity** is used to implement this function
+- Some of the functions can only be used after logging in
+  
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/59cdb749-a62a-483a-9bd2-5ac09caa7def)
+
+#### 7.2 Interface design
+<table>
+ <tr>
+  <td>
+    
+   **Request method**
+  </td>
+  <td>
+   
+   **Request path**
+  </td>
+ </tr>
+ <tr>
+  <td>
+   POST
+  </td>
+  <td>
+   /login
+  </td>
+ </tr>
+</table>
+
+- request body:
+
+```json
+{
+    "userName":"sg",
+    "password":"1234"
+}
+```
+- response format
+
+```json
+{
+    "code": 200,
+    "data": {
+        "token": "eyJhbGciOiJIUzI1NiJ9.eyJqdGkiOiI0ODBmOThmYmJkNmI0NjM0OWUyZjY2NTM0NGNjZWY2NSIsInN1YiI6IjEiLCJpc3MiOiJzZyIsImlhdCI6MTY0Mzg3NDMxNiwiZXhwIjoxNjQzOTYwNzE2fQ.ldLBUvNIxQCGemkCoMgT_0YsjsWndTg5tqfJb77pabk",
+        "userInfo": {
+            "avatar": "https://gimg2.baidu.com/image_search/src=http%3A%2F%2Fi0.hdslb.com%2Fbfs%2Farticle%2F3bf9c263bc0f2ac5c3a7feb9e218d07475573ec8.gi",
+            "email": "23412332@qq.com",
+            "id": 1,
+            "nickName": "sg333",
+            "sex": "1"
+        }
+    },
+    "msg": "operation success"
+}
+```
+
+#### 7.3 Procedure analysis
+
+- Log in
+ 1. Customize login interface
+    - call _ProviderManager_'s function to cerfify, and generate **jwt** if certification successful
+    - store user information into **redis**
+ 2. Customize _UserDetailsService_
+     - inquire database in this serviceImpl
+     - configure _passwordEncoder_ as _BCryptoPasswordEncoder_
+- Validation
+ 1. define **jwt** cerfification filter
+    - get toker
+    - get _userId_ by parsing token
+    - get user information from redis
+    - store _SecurityContextHolder_
+   
+#### 7.4 Preparation
+
+- **Corresponding dependencies**
+
+```xml
+<!--SpringSecurity initializer-->
+<dependency>
+	<groupId>org.springframework.boot</groupId>
+	<artifactId>spring-boot-starter-security</artifactId>
+</dependency>
+
+<!--redis-->
+<dependency>
+	<groupId>org.springframework.boot</groupId>
+	<artifactId>spring-boot-starter-data-redis</artifactId>
+</dependency>
+
+<!--fastjson-->
+<dependency>
+	<groupId>com.alibaba</groupId>
+	<artifactId>fastjson</artifactId>
+<version>1.2.33</version>
+</dependency>
+
+<!--jwt-->
+<dependency>
+	<groupId>io.jsonwebtoken</groupId>
+	<artifactId>jjwt</artifactId>
+	<version>0.9.0</version>
+</dependency>
+```
+
+- **Utils and configurations**
+
+- FastJsonRedisSerializer under shared module
+```java
+package com.js.config;
+
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.serializer.SerializerFeature;
+import com.fasterxml.jackson.databind.JavaType;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.type.TypeFactory;
+import org.springframework.data.redis.serializer.RedisSerializer;
+import org.springframework.data.redis.serializer.SerializationException;
+import com.alibaba.fastjson.parser.ParserConfig;
+import org.springframework.util.Assert;
+import java.nio.charset.Charset;
+
+/**
+ * Redis with FastJson Serializer
+ * @author 35238
+ * @date 2023/7/22 0022 21:12
+ */
+public class FastJsonRedisSerializer<T> implements RedisSerializer<T>{
+
+    public static final Charset DEFAULT_CHARSET = Charset.forName("UTF-8");
+
+    private Class<T> clazz;
+
+    static
+    {
+        ParserConfig.getGlobalInstance().setAutoTypeSupport(true);
+    }
+
+    public FastJsonRedisSerializer(Class<T> clazz)
+    {
+        super();
+        this.clazz = clazz;
+    }
+
+    @Override
+    public byte[] serialize(T t) throws SerializationException
+    {
+        if (t == null)
+        {
+            return new byte[0];
+        }
+        return JSON.toJSONString(t, SerializerFeature.WriteClassName).getBytes(DEFAULT_CHARSET);
+    }
+
+    @Override
+    public T deserialize(byte[] bytes) throws SerializationException
+    {
+        if (bytes == null || bytes.length <= 0)
+        {
+            return null;
+        }
+        String str = new String(bytes, DEFAULT_CHARSET);
+
+        return JSON.parseObject(str, clazz);
+    }
+
+
+    protected JavaType getJavaType(Class<?> clazz)
+    {
+        return TypeFactory.defaultInstance().constructType(clazz);
+    }
+}
+```
+
+- RedisConfig under shared module
+
+```java
+package com.js.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.serializer.StringRedisSerializer;
+
+@Configuration
+public class RedisConfig {
+
+    @Bean
+    @SuppressWarnings(value = { "unchecked", "rawtypes" })
+    public RedisTemplate<Object, Object> redisTemplate(RedisConnectionFactory connectionFactory)
+    {
+        RedisTemplate<Object, Object> template = new RedisTemplate<>();
+        template.setConnectionFactory(connectionFactory);
+
+        FastJsonRedisSerializer serializer = new FastJsonRedisSerializer(Object.class);
+
+        // 使用StringRedisSerializer来序列化和反序列化redis的key值
+        template.setKeySerializer(new StringRedisSerializer());
+        template.setValueSerializer(serializer);
+
+        // Hash的key也采用StringRedisSerializer的序列化方式
+        template.setHashKeySerializer(new StringRedisSerializer());
+        template.setHashValueSerializer(serializer);
+
+        template.afterPropertiesSet();
+        return template;
+    }
+}
+```
+
+- RedisCache under Utils
+
+```java
+package com.js.Utils;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.BoundSetOperations;
+import org.springframework.data.redis.core.HashOperations;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.stereotype.Component;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
+
+/**
+ * @author 35238
+ * @date 2023/7/22 0022 21:18
+ */
+@SuppressWarnings(value = { "unchecked", "rawtypes" })
+@Component
+public class RedisCache {
+    @Autowired
+    public RedisTemplate redisTemplate;
+
+    /**
+     * 缓存基本的对象，Integer、String、实体类等
+     *
+     * @param key 缓存的键值
+     * @param value 缓存的值
+     */
+    public <T> void setCacheObject(final String key, final T value)
+    {
+        redisTemplate.opsForValue().set(key, value);
+    }
+
+    /**
+     * 缓存基本的对象，Integer、String、实体类等
+     *
+     * @param key 缓存的键值
+     * @param value 缓存的值
+     * @param timeout 时间
+     * @param timeUnit 时间颗粒度
+     */
+    public <T> void setCacheObject(final String key, final T value, final Integer timeout, final TimeUnit timeUnit)
+    {
+        redisTemplate.opsForValue().set(key, value, timeout, timeUnit);
+    }
+
+    /**
+     * 设置有效时间
+     *
+     * @param key Redis键
+     * @param timeout 超时时间
+     * @return true=设置成功；false=设置失败
+     */
+    public boolean expire(final String key, final long timeout)
+    {
+        return expire(key, timeout, TimeUnit.SECONDS);
+    }
+
+    /**
+     * 设置有效时间
+     *
+     * @param key Redis键
+     * @param timeout 超时时间
+     * @param unit 时间单位
+     * @return true=设置成功；false=设置失败
+     */
+    public boolean expire(final String key, final long timeout, final TimeUnit unit)
+    {
+        return redisTemplate.expire(key, timeout, unit);
+    }
+
+    /**
+     * 获得缓存的基本对象。
+     *
+     * @param key 缓存键值
+     * @return 缓存键值对应的数据
+     */
+    public <T> T getCacheObject(final String key)
+    {
+        ValueOperations<String, T> operation = redisTemplate.opsForValue();
+        return operation.get(key);
+    }
+
+    /**
+     * 删除单个对象
+     *
+     * @param key
+     */
+    public boolean deleteObject(final String key)
+    {
+        return redisTemplate.delete(key);
+    }
+
+    /**
+     * 删除集合对象
+     *
+     * @param collection 多个对象
+     * @return
+     */
+    public long deleteObject(final Collection collection)
+    {
+        return redisTemplate.delete(collection);
+    }
+
+    /**
+     * 缓存List数据
+     *
+     * @param key 缓存的键值
+     * @param dataList 待缓存的List数据
+     * @return 缓存的对象
+     */
+    public <T> long setCacheList(final String key, final List<T> dataList)
+    {
+        Long count = redisTemplate.opsForList().rightPushAll(key, dataList);
+        return count == null ? 0 : count;
+    }
+
+    /**
+     * 获得缓存的list对象
+     *
+     * @param key 缓存的键值
+     * @return 缓存键值对应的数据
+     */
+    public <T> List<T> getCacheList(final String key)
+    {
+        return redisTemplate.opsForList().range(key, 0, -1);
+    }
+
+    /**
+     * 缓存Set
+     *
+     * @param key 缓存键值
+     * @param dataSet 缓存的数据
+     * @return 缓存数据的对象
+     */
+    public <T> BoundSetOperations<String, T> setCacheSet(final String key, final Set<T> dataSet)
+    {
+        BoundSetOperations<String, T> setOperation = redisTemplate.boundSetOps(key);
+        Iterator<T> it = dataSet.iterator();
+        while (it.hasNext())
+        {
+            setOperation.add(it.next());
+        }
+        return setOperation;
+    }
+
+    /**
+     * 获得缓存的set
+     *
+     * @param key
+     * @return
+     */
+    public <T> Set<T> getCacheSet(final String key)
+    {
+        return redisTemplate.opsForSet().members(key);
+    }
+
+    /**
+     * 缓存Map
+     *
+     * @param key
+     * @param dataMap
+     */
+    public <T> void setCacheMap(final String key, final Map<String, T> dataMap)
+    {
+        if (dataMap != null) {
+            redisTemplate.opsForHash().putAll(key, dataMap);
+        }
+    }
+
+    /**
+     * 获得缓存的Map
+     *
+     * @param key
+     * @return
+     */
+    public <T> Map<String, T> getCacheMap(final String key)
+    {
+        return redisTemplate.opsForHash().entries(key);
+    }
+
+    /**
+     * 往Hash中存入数据
+     *
+     * @param key Redis键
+     * @param hKey Hash键
+     * @param value 值
+     */
+    public <T> void setCacheMapValue(final String key, final String hKey, final T value)
+    {
+        redisTemplate.opsForHash().put(key, hKey, value);
+    }
+
+    /**
+     * 获取Hash中的数据
+     *
+     * @param key Redis键
+     * @param hKey Hash键
+     * @return Hash中的对象
+     */
+    public <T> T getCacheMapValue(final String key, final String hKey)
+    {
+        HashOperations<String, String, T> opsForHash = redisTemplate.opsForHash();
+        return opsForHash.get(key, hKey);
+    }
+
+    /**
+     * 删除Hash中的数据
+     *
+     * @param key
+     * @param hkey
+     */
+    public void delCacheMapValue(final String key, final String hkey)
+    {
+        HashOperations hashOperations = redisTemplate.opsForHash();
+        hashOperations.delete(key, hkey);
+    }
+
+    /**
+     * 获取多个Hash中的数据
+     *
+     * @param key Redis键
+     * @param hKeys Hash键集合
+     * @return Hash对象集合
+     */
+    public <T> List<T> getMultiCacheMapValue(final String key, final Collection<Object> hKeys)
+    {
+        return redisTemplate.opsForHash().multiGet(key, hKeys);
+    }
+
+    /**
+     * 获得缓存的基本对象列表
+     *
+     * @param pattern 字符串前缀
+     * @return 对象列表
+     */
+    public Collection<String> keys(final String pattern)
+    {
+        return redisTemplate.keys(pattern);
+    }
+}
+```
+- WebUtils under Util
+
+```java
+package com.js.Utils;
+
+import org.springframework.web.context.request.RequestContextHolder;
+import javax.servlet.ServletContext;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+
+/**
+ * @author 35238
+ * @date 2023/7/22 0022 21:19
+ */
+public class WebUtils {
+    /**
+     * 将字符串渲染到客户端
+     *
+     * @param response 渲染对象
+     * @param string 待渲染的字符串
+     * @return null
+     */
+    public static void renderString(HttpServletResponse response, String string) {
+        try
+        {
+            response.setStatus(200);
+            response.setContentType("application/json");
+            response.setCharacterEncoding("utf-8");
+            response.getWriter().print(string);
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+        }
+    }
+
+
+    public static void setDownLoadHeader(String filename, ServletContext context, HttpServletResponse response) throws UnsupportedEncodingException {
+        String mimeType = context.getMimeType(filename);//获取文件的mime类型
+        response.setHeader("content-type",mimeType);
+        String fname= URLEncoder.encode(filename,"UTF-8");
+        response.setHeader("Content-disposition","attachment; filename="+fname);
+
+//        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+//        response.setCharacterEncoding("utf-8");
+    }
+}
+```
+ 
+- JwtUtil under Util
+
+```java
+package com.js.Utils;
+
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtBuilder;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
+import java.util.Base64;
+import java.util.Date;
+import java.util.UUID;
+
+/**
+ * JWT工具类
+ * @author 35238
+ * @date 2023/7/22 0022 21:18
+ */
+public class JwtUtil {
+
+    //有效期为
+    public static final Long JWT_TTL = 72*60 * 60 *1000L;// 60 * 60 *1000  一个小时
+    //设置秘钥明文
+    public static final String JWT_KEY = "huanfqc";
+
+    public static String getUUID(){
+        String token = UUID.randomUUID().toString().replaceAll("-", "");
+        return token;
+    }
+
+    /**
+     * 生成jtw
+     * @param subject token中要存放的数据（json格式）
+     * @return
+     */
+    public static String createJWT(String subject) {
+        JwtBuilder builder = getJwtBuilder(subject, null, getUUID());// 设置过期时间
+        return builder.compact();
+    }
+
+    /**
+     * 生成jtw
+     * @param subject token中要存放的数据（json格式）
+     * @param ttlMillis token超时时间
+     * @return
+     */
+    public static String createJWT(String subject, Long ttlMillis) {
+        JwtBuilder builder = getJwtBuilder(subject, ttlMillis, getUUID());// 设置过期时间
+        return builder.compact();
+    }
+
+    private static JwtBuilder getJwtBuilder(String subject, Long ttlMillis, String uuid) {
+        SignatureAlgorithm signatureAlgorithm = SignatureAlgorithm.HS256;
+        SecretKey secretKey = generalKey();
+        long nowMillis = System.currentTimeMillis();
+        Date now = new Date(nowMillis);
+        if(ttlMillis==null){
+            ttlMillis=JwtUtil.JWT_TTL;
+        }
+        long expMillis = nowMillis + ttlMillis;
+        Date expDate = new Date(expMillis);
+        return Jwts.builder()
+                .setId(uuid)              //唯一的ID
+                .setSubject(subject)   // 主题  可以是JSON数据
+                .setIssuer("HF")     // 签发者
+                .setIssuedAt(now)      // 签发时间
+                .signWith(signatureAlgorithm, secretKey) //使用HS256对称加密算法签名, 第二个参数为秘钥
+                .setExpiration(expDate);
+    }
+
+    /**
+     * 创建token
+     * @param id
+     * @param subject
+     * @param ttlMillis
+     * @return
+     */
+    public static String createJWT(String id, String subject, Long ttlMillis) {
+        JwtBuilder builder = getJwtBuilder(subject, ttlMillis, id);// 设置过期时间
+        return builder.compact();
+    }
+
+    public static void main(String[] args) throws Exception {
+        String token = "eyJhbGciOiJIUzI1NiJ9.eyJqdGkiOiJjYWM2ZDVhZi1mNjVlLTQ0MDAtYjcxMi0zYWEwOGIyOTIwYjQiLCJzdWIiOiJzZyIsImlzcyI6InNnIiwiaWF0IjoxNjM4MTA2NzEyLCJleHAiOjE2MzgxMTAzMTJ9.JVsSbkP94wuczb4QryQbAke3ysBDIL5ou8fWsbt_ebg";
+        Claims claims = parseJWT(token);
+        System.out.println(claims);
+    }
+
+    /**
+     * 生成加密后的秘钥 secretKey
+     * @return
+     */
+    public static SecretKey generalKey() {
+        byte[] encodedKey = Base64.getDecoder().decode(JwtUtil.JWT_KEY);
+        SecretKey key = new SecretKeySpec(encodedKey, 0, encodedKey.length, "AES");
+        return key;
+    }
+
+    /**
+     * 解析
+     *
+     * @param jwt
+     * @return
+     * @throws Exception
+     */
+    public static Claims parseJWT(String jwt) throws Exception {
+        SecretKey secretKey = generalKey();
+        return Jwts.parser()
+                .setSigningKey(secretKey)
+                .parseClaimsJws(jwt)
+                .getBody();
+    }
+}
+```
+
 
