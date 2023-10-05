@@ -2207,5 +2207,20 @@ public class JwtUtil {
     }
 }
 ```
+#### 7.5 Download & launch Redis
 
+- Redis is a memory-level NoSQL database with a key-value storage structure, that is, a database that runs in memory
+  - it supports multiple data storage formats
+  - it supports persistence and clustering
+ 
+- Download (Windows x64)
+> https://github.com/tporadowski/redis/releases
 
+Open installation directory: 
+- Server launching command
+> redis-server.exe redis.windows.conf
+
+- Client launching command
+> redis-cli.exe
+
+#### 7.6 Code implementaion
