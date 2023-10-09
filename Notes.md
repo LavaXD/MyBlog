@@ -1645,15 +1645,15 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link> implements Li
 #### 7.3 Procedure analysis
 
 - Log in
- 1. Customize login interface
+ 1. define login interface
     - call _ProviderManager_'s function to cerfify, and generate **jwt** if certification successful
     - store user information into **redis**
- 2. Customize _UserDetailsService_
+ 2. define _UserDetailsService_
      - inquire database in this serviceImpl
      - configure _passwordEncoder_ as _BCryptoPasswordEncoder_
 - Validation
  1. define **jwt** cerfification filter
-    - get toker
+    - get token
     - get _userId_ by parsing token
     - get user information from redis
     - store _SecurityContextHolder_
@@ -1663,6 +1663,12 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link> implements Li
 - **Corresponding dependencies**
 
 ```xml
+<!--For jaxb defaulf implementation that are removed in higher JDK versions-->
+<dependency>
+            <groupId>javax.xml.bind</groupId>
+            <artifactId>jaxb-api</artifactId>
+            <version>2.3.1</version>
+        </dependency>
 <!--SpringSecurity initializer-->
 <dependency>
 	<groupId>org.springframework.boot</groupId>
@@ -2216,11 +2222,530 @@ public class JwtUtil {
 - Download (Windows x64)
 > https://github.com/tporadowski/redis/releases
 
+- Client launching command
+> redis-cli.exe
+
 Open installation directory: 
 - Server launching command
 > redis-server.exe redis.windows.conf
 
-- Client launching command
-> redis-cli.exe
 
-#### 7.6 Code implementaion
+#### 7.6 Code implementaion - login
+1. _User_ class under domain under shared module
+
+```java
+package com.js.domain.entity;
+
+
+import java.util.Date;
+
+import java.io.Serializable;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+
+
+@SuppressWarnings("serial")
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@TableName("sys_user")
+public class User  {
+    
+@TableId
+    private Long id;
+
+
+    private String userName;
+    
+
+    private String nickName;
+    
+
+    private String password;
+    
+
+    private String type;
+    
+
+    private String status;
+    
+
+    private String email;
+    
+
+    private String phonenumber;
+    
+
+    private String sex;
+    
+
+    private String avatar;
+    
+
+    private Long createBy;
+    
+
+    private Date createTime;
+    
+
+    private Long updateBy;
+    
+
+    private Date updateTime;
+    
+
+    private Integer delFlag;
+    
+}
+```
+2. _UserMapper_ under Mapper package under shared module
+
+```java
+package com.js.mapper;
+
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.js.domain.entity.User;
+import org.springframework.stereotype.Service;
+
+@Service
+public interface UserMapper extends BaseMapper<User> {
+
+}
+```
+
+3._UserDetailsServiceImpl_ under impl under shared module
+```java
+package com.js.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.js.domain.entity.LoginUser;
+import com.js.domain.entity.User;
+import com.js.mapper.UserMapper;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.stereotype.Service;
+
+import java.util.Objects;
+
+@Service
+public class UserDetailsImpl implements UserDetailsService {
+
+    @Autowired
+    private UserMapper userMapper;
+
+    @Override
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+
+        LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+
+        //inquire user info by username
+        queryWrapper.eq(User::getUserName,username);
+        User user = userMapper.selectOne(queryWrapper);
+
+        //check if user is found, throw exception if not
+        if(Objects.isNull(user)){
+            throw new RuntimeException("User does not exist!");
+        }
+
+        //return user info
+        //TODO inquire authority info encapsulation
+
+        return new LoginUser(user);
+    }
+}
+```
+4. _LoginUser_ under domain under shared module
+```java
+package com.js.domain.entity;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+
+import java.util.Collection;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class LoginUser implements UserDetails {
+
+    private User user;
+
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        return null;
+    }
+
+    @Override
+    public String getPassword() {
+        return user.getPassword();
+    }
+
+    @Override
+    public String getUsername() {
+        return user.getUserName();
+    }
+
+    @Override
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isAccountNonLocked() {
+        return true;
+    }
+
+    @Override
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return true;
+    }
+}
+```
+5. _BlogUserLoginVo_ under domain under shared module
+
+```java
+package com.js.domain.vo;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class BlogUserLoginVo {
+
+    private String token;
+    private UserInfoVo userInfoVo;
+}
+```
+
+6. _UserInfoVo_ under domain under shared module
+
+```java
+package com.js.domain.vo;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.experimental.Accessors;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Accessors(chain = true)
+public class UserInfoVo {
+
+    private Long id;
+
+    private String nickName;
+
+    private String avatar;
+
+    private String sex;
+
+    private String email;
+}
+```
+
+7. _BlogLoginController_ under controller under frontstage module
+
+```java
+package com.js.controller;
+
+import com.js.domain.ResponseResult;
+import com.js.domain.entity.User;
+import com.js.service.BlogLoginService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+public class BlogLoginController {
+
+    @Autowired
+    private BlogLoginService blogLoginService;
+
+    @PostMapping("login")
+    public ResponseResult login(@RequestBody User user){
+
+        return blogLoginService.login(user);
+
+
+    }
+}
+```
+
+8. _BlogLoginService_ interface under Service package under shared module
+
+```java
+package com.js.service;
+
+import com.js.domain.ResponseResult;
+import com.js.domain.entity.User;
+
+public interface BlogLoginService {
+    ResponseResult login(User user);
+}
+```
+
+9.  _BlogLoginService_ under Impl package under shared module
+```java
+package com.js.service.impl;
+
+import com.js.Utils.BeanCopyUtil;
+import com.js.Utils.JwtUtil;
+import com.js.Utils.RedisCache;
+import com.js.domain.ResponseResult;
+import com.js.domain.entity.LoginUser;
+import com.js.domain.entity.User;
+import com.js.domain.vo.BlogUserLoginVo;
+import com.js.domain.vo.UserInfoVo;
+import com.js.service.BlogLoginService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.stereotype.Service;
+
+import java.util.Objects;
+
+@Service
+public class BlogLoginServiceImpl implements BlogLoginService {
+
+    @Autowired
+    private AuthenticationManager authenticationManager;
+
+    @Autowired
+    private RedisCache redisCache;
+
+    @Override
+    public ResponseResult login(User user) {
+
+        UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(user.getUserName(),user.getPassword());
+        Authentication authenticate = authenticationManager.authenticate(authenticationToken);
+
+        //check if certification passed
+        if(Objects.isNull(authenticate)){
+            throw new RuntimeException("Username or password incorrect!");
+        }
+
+        //get userId, generate token with userId
+        LoginUser loginUser = (LoginUser) authenticate.getPrincipal();
+        String userId = loginUser.getUser().getId().toString(); // cast Long to String
+        String jwt = JwtUtil.createJWT(userId);
+
+        //store userInfo into redis
+        redisCache.setCacheObject("bloglogin:"+userId, loginUser);
+
+        //convert user to userInfoVo using BeanCopy util
+        UserInfoVo userInfoVo = BeanCopyUtil.copyBean(loginUser.getUser(), UserInfoVo.class);
+
+        //encapsulate token and userInfo and return
+        BlogUserLoginVo userLoginVo = new BlogUserLoginVo(jwt, userInfoVo);
+        return ResponseResult.okResult(userLoginVo);
+
+    }
+}
+```
+
+10.  _SecurityConfig_ under config under frontstage module
+```java
+package com.js.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+@Configuration
+public class SecurityConfig extends WebSecurityConfigurerAdapter {
+
+    @Override
+    @Bean
+    public AuthenticationManager authenticationManagerBean() throws Exception {
+        return super.authenticationManagerBean();
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder(){
+        return new BCryptPasswordEncoder();
+    }
+
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        http
+                //close csrf
+                .csrf().disable()
+                //not through Session to get SecurityContext
+                .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                .and()
+                .authorizeRequests()
+                // for login interface, allow anonymous visit
+                .antMatchers("/login").anonymous()
+                // apart from above requests, no need of authentication
+                .anyRequest().permitAll();
+
+
+        http.logout().disable();
+        //allow cors
+        http.cors();
+    }
+}
+```
+#### 7.7 Test Login
+1. Open redis
+
+>  redis-server.exe redis.windows.conf
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/89ed2eab-4d96-480d-b9e3-f61f7ee6389b)
+
+2. Open blog vue
+
+> npm run dev
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/4d868c36-6ac1-4022-827a-62549af29e04)
+
+3. Use **Postman** to test with request address and request body
+
+> http://localhost:7777/login
+
+```json
+{
+    "userName":"sg",
+    "password":"1234"
+}
+```
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/28830111-b6f2-458a-a177-d67c6ea12893)
+
+4. Test frontend page
+
+> http://localhost:8080/#/Login?login=1
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/c6ee30ab-a2c9-4f99-9b18-d6261eec05d9)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/9c238bfe-8ca9-460e-9f72-4291604c4cab)
+
+#### 7.8 Code implementation - verification filter
+- Implement the verification function using jwt authentication filter to verify the user's login status
+  
+1. Create filter.JwtAuthenticationTokenFilter under frontstage module
+
+```java
+package com.js.filter;
+
+import com.alibaba.fastjson.JSON;
+import com.js.domain.entity.LoginUser;
+import com.js.domain.ResponseResult;
+import com.js.enums.AppHttpCodeEnum;
+import com.js.Utils.JwtUtil;
+import com.js.Utils.RedisCache;
+import com.js.Utils.WebUtils;
+import io.jsonwebtoken.Claims;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import javax.servlet.FilterChain;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.Objects;
+
+
+@Component
+//frontstage authentication filter, OncePerRequestFilter is a class provided by springsecurity
+public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
+
+    @Autowired
+    //RedisCache is an util to operate redis
+    private RedisCache redisCache;
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+
+        //Get the value of token from request head
+        String token = request.getHeader("token");
+        //check if token is taken or no
+        if(!StringUtils.hasText(token)){
+            //if no token then this interface does not need login
+            filterChain.doFilter(request,response);
+            return;
+        }
+
+        //parse userID
+        //JwtUtil is an util to parse token, to transfer encryted password to simple password
+        Claims claims = null;
+        try {
+            claims = JwtUtil.parseJWT(token);
+        } catch (Exception e) {
+            //throw exception if token expired or modified
+            e.printStackTrace();
+            //respond exception to frontend that login is needed
+            ResponseResult result = ResponseResult.errorResult(AppHttpCodeEnum.NEED_LOGIN);
+            WebUtils.renderString(response, JSON.toJSONString(result));
+            return;
+        }
+        String userid = claims.getSubject();
+
+        //get user using userID in redis，blogin is the prefix
+        LoginUser loginUser = redisCache.getCacheObject("bloglogin:" + userid);
+        //if no user, meaning login expired, need login
+        if(Objects.isNull(loginUser)){
+            ResponseResult result = ResponseResult.errorResult(AppHttpCodeEnum.NEED_LOGIN);
+            WebUtils.renderString(response, JSON.toJSONString(result));
+            return;
+        }
+
+        //store loginUser object store into SecurityContextHolder(class provided by Security)
+        UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(loginUser,null,null);
+        SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+
+        filterChain.doFilter(request,response);
+
+    }
+}
+```
+2. Add the above filter into SpringSecurity filter chain - _SecurityConfig_
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/84dcb78f-2591-411b-af9a-60278b064a5a)
+
+#### 7.9 Test verification filter
+
+- Use Postman to test Get request after "link/getAllLink" is added to the authentication list
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/e6ca8965-7fe7-4145-b704-5831d2580f19)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/8a865382-375e-4d98-b504-1fe96c82f3c4)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/b870fe85-f228-43df-92ca-d88793ebaaad)
+
+
+
+
+
+
+
