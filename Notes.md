@@ -2744,6 +2744,351 @@ public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/b870fe85-f228-43df-92ca-d88793ebaaad)
 
 
+## 8. Blog Frontstage - Exception Handler
+#### 8.1 Authentication & authorization exception handler
+- For now the default response format provided by spring security is used when authentication and authorization fail, which is not consistent
+with the interface requirement. As a result, it is necessary to implement **_AuthenticationEntryPoint_** and **_AccessDeniedHandler_**
+
+1. _AuthenticationEntryPointImpl_ under shared module
+```java
+package com.js.handler;
+
+import com.alibaba.fastjson.JSON;
+import com.js.Utils.WebUtils;
+import com.js.domain.ResponseResult;
+import com.js.enums.AppHttpCodeEnum;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.InsufficientAuthenticationException;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.web.AuthenticationEntryPoint;
+import org.springframework.stereotype.Component;
+
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+
+@Component
+public class AuthenticationEntryPointImpl implements AuthenticationEntryPoint {
+
+    @Override
+    public void commence(HttpServletRequest httpServletRequest, HttpServletResponse response, AuthenticationException e) throws IOException, ServletException {
+
+        e.printStackTrace();
+        ResponseResult result = null;
+
+        //check which exception is
+        if(e instanceof BadCredentialsException){
+            result = ResponseResult.errorResult(AppHttpCodeEnum.LOGIN_ERROR);
+        } else if (e instanceof InsufficientAuthenticationException){
+            result = ResponseResult.errorResult(AppHttpCodeEnum.NEED_LOGIN);
+        } else {
+            result = ResponseResult.errorResult(AppHttpCodeEnum.SYSTEM_ERROR);
+        }
+
+        //respond to front stage
+        WebUtils.renderString(response, JSON.toJSONString(result));
+    }
+}
+```
+
+2. _AccessDeniedHandlerImpl_ under shared module
+
+```java
+package com.js.handler;
+
+import com.alibaba.fastjson.JSON;
+import com.js.Utils.WebUtils;
+import com.js.domain.ResponseResult;
+import com.js.enums.AppHttpCodeEnum;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.web.access.AccessDeniedHandler;
+import org.springframework.stereotype.Component;
+
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+
+@Component
+public class AccessDeniedHandlerImpl implements AccessDeniedHandler {
+    @Override
+    public void handle(HttpServletRequest httpServletRequest, HttpServletResponse response, AccessDeniedException e) throws IOException, ServletException {
+
+        e.printStackTrace();
+        ResponseResult result = ResponseResult.errorResult(AppHttpCodeEnum.NO_OPERATOR_AUTH);
+
+        //respond to front stage
+        WebUtils.renderString(response, JSON.toJSONString(result));
+    }
+}
+```
+
+3. Add configurations of above impl classes in _SecurityConfig_ under Frontstage module
+
+```java
+@Autowired
+AuthenticationEntryPoint authenticationEntryPoint;
+
+@Autowired
+AccessDeniedHandler accessDeniedHandler;
+
+//config exception handler into security
+http.exceptionHandling()
+	.authenticationEntryPoint(authenticationEntryPoint)
+	.accessDeniedHandler(accessDeniedHandler);
+```
+4. Test with **Postman**
+
+> Post Request: http://localhost:7777/login
+> Get Request: http://localhost:7777/link/getAllLink
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/ba06a769-d128-4e97-9e81-95f24a3a962c)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/703e558d-4219-460c-bbac-60b4cc1a7b75)
+
+#### 8.2 Unified Execption Handling 
+
+1. _SystemException_ class under exception package under shared module
+
+```java
+package com.js.exception;
+
+import com.js.enums.AppHttpCodeEnum;
+
+public class SystemException extends RuntimeException {
+    private int code;
+
+    private String msg;
+
+    public int getCode() {
+        return code;
+    }
+
+    public String getMsg() {
+        return msg;
+    }
+
+
+    public SystemException(AppHttpCodeEnum httpCodeEnum) {
+        super(httpCodeEnum.getMsg());
+
+        this.code = httpCodeEnum.getCode();
+        this.msg = httpCodeEnum.getMsg();
+    }
+}
+```
+2. _GlobalExceptionHandler_ class under handler package under shared module
+
+```java
+package com.js.handler.exception;
+
+import com.js.domain.ResponseResult;
+import com.js.enums.AppHttpCodeEnum;
+import com.js.exception.SystemException;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.bind.annotation.ControllerAdvice;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@Slf4j
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(SystemException.class)
+    public ResponseResult systemExceptionHandler(SystemException e){
+
+        //print exception info
+        log.error("Exception detected! {}",e);
+
+        //get msg from exception object, enacap and return
+        return ResponseResult.errorResult(e.getCode(),e.getMsg());
+
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseResult exceptionHandler(SystemException e){
+
+        //print exception info
+        log.error("Exception detected! {}",e);
+
+        //get msg from exception object, enacap and return
+        return ResponseResult.errorResult(AppHttpCodeEnum.SYSTEM_ERROR);
+
+    }
+}
+```
+
+3. Update _BlogLoginController_ with empty username exception 
+
+```java
+package com.js.controller;
+
+import com.js.domain.ResponseResult;
+import com.js.domain.entity.User;
+import com.js.enums.AppHttpCodeEnum;
+import com.js.exception.SystemException;
+import com.js.service.BlogLoginService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+public class BlogLoginController {
+
+    @Autowired
+    private BlogLoginService blogLoginService;
+
+    @PostMapping("login")
+    public ResponseResult login(@RequestBody User user){
+
+        //if username is null, then throw exception that username is required
+        if(!StringUtils.hasText(user.getUserName())){
+            throw new SystemException(AppHttpCodeEnum.REQUIRE_USERNAME);
+        }
+        return blogLoginService.login(user);
+
+
+    }
+}
+```
+
+#### 9. Blog Frontstage - LOGOUT
+
+## 9.1 Interface design
+<table>
+	<tr>
+		<td>Request Method</td>
+		<td>Request Path</td>
+		<td>Request Head</td>
+	</tr>
+	<tr>
+		<td>POST</td>
+		<td>/logout</td>
+		<td>require 'token'</td>
+	</tr>
+</table>
+
+```json
+{
+    "code": 200,
+    "msg": "operation success"
+}
+```
+## 9.2 Procedure
+- delete user info from redis
+
+## 9.3 Code Impl
+
+- in _BlogLoginServiceImpl_
+
+```java
+@Override
+    public ResponseResult logout() {
+        //get token to parse userId
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        LoginUser loginUser = (LoginUser) authentication.getPrincipal();
+
+        //get userId from token
+        Long userId = loginUser.getUser().getId();
+
+        //delete user info from redis
+        redisCache.deleteObject("bloglogin:"+userId);
+        return ResponseResult.okResult();
+    }
+```
+
+- in _BlogLoginController_
+
+```java
+@PostMapping("/logout")
+    public ResponseResult logout(){
+        return blogLoginService.logout();
+    }
+```
+
+- Test
+1. open redis 
+```json
+d:
+cd /redis
+redis-server.exe redis.windows.conf
+```
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/8027856a-ae97-4971-9af7-d1e743059d0e)
+
+
+2. test in **Postman**
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/85943f8b-fd10-4da3-b3b5-9722747b1e2f)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/99b84885-41aa-47a4-8744-b72764dd8aac)
+
+## 10. Blog Frontstage - Comment List
+
+#### 10.1 Comment Table
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/d82ff2ac-3f74-4e64-9c0a-5e0de252fba6)
+
+#### 10.2 Interface design
+
+<table>
+	<tr>
+		<td>Request Method</td>
+		<td>Request Path</td>
+		<td>Request Head</td>
+	</tr>
+	<tr>
+		<td>Get</td>
+		<td>/comment/commentList</td>
+		<td>'token' is not needed, comment can be seen without login</td>
+	</tr>
+</table>
+
+
+- Response Result (including root comment + subComment)
+
+```json
+{
+    "code": 200,
+    "data": {
+        "rows": [
+            {
+                "articleId": "1",
+                "children": [
+                    {
+                        "articleId": "1",
+                        "content": "subComment",
+                        "createBy": "1",
+                        "createTime": "2022-01-30 10:06:21",
+                        "id": "20",
+                        "rootId": "1",
+                        "toCommentId": "1",
+                        "toCommentUserId": "1",
+                        "toCommentUserName": "comment to",
+                        "username": "the user makes the comment"
+                    }
+                ],
+                "content": "root comment",
+                "createBy": "1",
+                "createTime": "2022-01-29 07:59:22",
+                "id": "1",
+                "rootId": "-1",
+                "toCommentId": "-1",
+                "toCommentUserId": "-1",
+                "username": "user makes teh comment"
+            }
+        ],
+        "total": "15"
+    },
+    "msg": "operation success"
+}
+```
+
+#### 10.3 Basic code
 
 
 
