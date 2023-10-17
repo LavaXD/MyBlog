@@ -2956,9 +2956,9 @@ public class BlogLoginController {
 }
 ```
 
-#### 9. Blog Frontstage - LOGOUT
+## 9. Blog Frontstage - LOGOUT
 
-## 9.1 Interface design
+#### 9.1 Interface design
 <table>
 	<tr>
 		<td>Request Method</td>
@@ -2978,10 +2978,10 @@ public class BlogLoginController {
     "msg": "operation success"
 }
 ```
-## 9.2 Procedure
+#### 9.2 Procedure
 - delete user info from redis
 
-## 9.3 Code Impl
+#### 9.3 Code Impl
 
 - in _BlogLoginServiceImpl_
 
