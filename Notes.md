@@ -3048,6 +3048,13 @@ redis-server.exe redis.windows.conf
 	</tr>
 </table>
 
+- Query parameters
+
+```text
+articleId
+pageNum
+pageSize
+```
 
 - Response Result (including root comment + subComment)
 
@@ -3088,8 +3095,310 @@ redis-server.exe redis.windows.conf
 }
 ```
 
-#### 10.3 Basic code
+#### 10.3 Coding
 
+##### 10.3.1 Root comment implementation
+1. Use _**EasyCode**_ to generate the Mapper, Entity, Service, and ServiceImpl of table Comment
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/ddfeafee-cc22-4222-85f6-190f6d6559fd)
+
+2. Create _**CommentVo**_ to return the correct format to the frontstage
+
+```java
+package com.js.domain.vo;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.Date;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class CommentVo {
+    private Long id;
+
+    private Long articleId;
+
+    private Long rootId;
+
+    private String content;
+
+    private Long toCommentUserId;
+
+    private String toCommentUserName;
+
+    private Long toCommentId;
+
+    private Long createBy;
+
+    private Date createTime;
+
+    private String username;
+}
+```
+3. Implement service code in **_CommentServiceImpl_** class under shared module
+
+```java
+package com.js.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.js.Utils.BeanCopyUtil;
+import com.js.domain.ResponseResult;
+import com.js.domain.entity.Comment;
+import com.js.domain.vo.CommentVo;
+import com.js.domain.vo.PageVo;
+import com.js.mapper.CommentMapper;
+import com.js.service.CommentService;
+import com.js.service.UserService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+import static com.js.constants.SystemConstants.COMMENT_ROOT;
+
+
+@Service("commentService")
+public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> implements CommentService {
+
+    @Autowired
+    private UserService userService;
+
+    @Override
+    public ResponseResult commentList(Long articleId, Integer pageNum, Integer pageSize) {
+
+        LambdaQueryWrapper<Comment> queryWrapper = new LambdaQueryWrapper<>();
+
+        //inquire root comment of the corresponding article
+        //use articleId to inquire the corresponding article
+        queryWrapper.eq(Comment::getArticleId, articleId);
+
+        //the rootId of a root comment is -1
+        queryWrapper.eq(Comment::getRootId, COMMENT_ROOT);
+
+        //paging query
+        Page<Comment> page = new Page<>(pageNum,pageSize);
+        page(page,queryWrapper);
+        List<CommentVo> commentVoList = toCommentVoList(page.getRecords());
+
+        return ResponseResult.okResult(new PageVo(commentVoList,page.getTotal()));
+    }
+
+    private List<CommentVo> toCommentVoList(List<Comment> list){
+        List<CommentVo> commentVos = BeanCopyUtil.copyBeanList(list, CommentVo.class);
+
+        //traversal vo list
+        for (CommentVo commentVo : commentVos) {
+
+            //get username through createBy
+            String nickName = userService.getById(commentVo.getCreateBy()).getNickName();
+            commentVo.setUsername(nickName);
+
+            //get toCommentUserName through toCommentUserId
+            if(commentVo.getToCommentId() != -1){ //a comment only have toCommentId when a comment is not a root comment
+                String toCommentUserName = userService.getById(commentVo.getToCommentId()).getNickName();
+                commentVo.setToCommentUserName(toCommentUserName);
+            }
+        }
+        return commentVos;
+    }
+}
+```
+4. Test
+
+- Open redis
+> d:
+
+> cd/redis
+
+> redis-server.exe redis.windows.conf
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/ade325f5-7759-4e71-8a9d-b7ae295f5b13)
+
+- Use _**Postman**_ to test
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/2f8a5d44-f11f-4614-ba08-8e6d9063830c)
+
+
+##### 10.3.2 Child comment implementation
+1. Modify _**CommentVo**_ as follows: add "children" attribute
+
+```java
+package com.js.domain.vo;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.Date;
+import java.util.List;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class CommentVo {
+    private Long id;
+
+    private Long articleId;
+
+    private Long rootId;
+
+    private String content;
+
+    private Long toCommentUserId;
+
+    private String toCommentUserName;
+
+    private Long toCommentId;
+
+    private Long createBy;
+
+    private Date createTime;
+
+    private String username;
+
+    private List<CommentVo> children;
+}
+```
+2. Modify _**CommentServiceImpl**_ as follows:
+
+```java
+package com.js.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.js.Utils.BeanCopyUtil;
+import com.js.domain.ResponseResult;
+import com.js.domain.entity.Comment;
+import com.js.domain.vo.CommentVo;
+import com.js.domain.vo.PageVo;
+import com.js.mapper.CommentMapper;
+import com.js.service.CommentService;
+import com.js.service.UserService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+import static com.js.constants.SystemConstants.COMMENT_ROOT;
+
+
+@Service("commentService")
+public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> implements CommentService {
+
+    @Autowired
+    private UserService userService;
+
+    @Override
+    public ResponseResult commentList(Long articleId, Integer pageNum, Integer pageSize) {
+
+        LambdaQueryWrapper<Comment> queryWrapper = new LambdaQueryWrapper<>();
+
+        //inquire root comment of the corresponding article
+        //use articleId to inquire the corresponding article
+        queryWrapper.eq(Comment::getArticleId, articleId);
+
+        //the rootId of a root comment is -1
+        queryWrapper.eq(Comment::getRootId, COMMENT_ROOT);
+
+        //paging query
+        Page<Comment> page = new Page<>(pageNum,pageSize);
+        page(page,queryWrapper);
+        List<CommentVo> commentVoList = toCommentVoList(page.getRecords());
+
+        //inquire all the children comment as a list
+        for (CommentVo commentVo : commentVoList) {
+
+            //inquire corresponding children comment of each root comment - through root_id
+            List<CommentVo> children = getChildrenComment(commentVo.getId());
+
+            //set value
+            commentVo.setChildren(children);
+        }
+
+        return ResponseResult.okResult(new PageVo(commentVoList,page.getTotal()));
+    }
+
+    private List<CommentVo> getChildrenComment(Long id) {
+
+        LambdaQueryWrapper<Comment> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(Comment::getRootId, id);
+
+        List<Comment> comments = list(queryWrapper);
+
+        List<CommentVo> commentVos = toCommentVoList(comments);
+        return commentVos;
+    }
+
+    private List<CommentVo> toCommentVoList(List<Comment> list){
+        List<CommentVo> commentVos = BeanCopyUtil.copyBeanList(list, CommentVo.class);
+
+        //traversal vo list
+        for (CommentVo commentVo : commentVos) {
+
+            //get username through createBy
+            String nickName = userService.getById(commentVo.getCreateBy()).getNickName();
+            commentVo.setUsername(nickName);
+
+            //get toCommentUserName through toCommentUserId
+            if(commentVo.getToCommentUserId() != -1){ //a comment only have toCommentId when a comment is not a root comment
+                String toCommentUserName = userService.getById(commentVo.getToCommentUserId()).getNickName();
+                commentVo.setToCommentUserName(toCommentUserName);
+            }
+        }
+        return commentVos;
+    }
+}
+```
+3. Test with _**Postman**_
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/1fbab47d-8681-4530-87a4-b254287835e0)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/9d78104c-5660-496d-a1e1-3dc0273ded56)
+
+4. Open Blog Vue and redis to test web page
+
+- Blog Vue
+
+```text
+> d:
+> cd/BlogWeb/js-blog-vue
+> npm run dev
+```
+- redis
+
+```text
+> d:
+> cd/redis/redis-server.exe redis.windows.conf
+```
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/ab01ddcc-2dd8-4a58-9a3b-8693426ffcd6)
+
+## 11. Blog FrontStage - Sending Comment
+
+#### 11.1 Sending article comment
+
+##### 11.1.1 Comment table
+
+##### 11.1.2 Interface design
+
+##### 11.1.3 Coding
+
+
+#### 11.2 Sending friend link comment
+
+##### 11.2.1 Comment table
+
+##### 11.2.2 Interface design
+
+##### 11.2.3 Coding
 
 
 
