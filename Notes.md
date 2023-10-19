@@ -3226,7 +3226,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
 
 
 ##### 10.3.2 Child comment implementation
-1. Modify _**CommentVo**_ as follows: add "children" attribute
+1. Update _**CommentVo**_ as follows: add "children" attribute
 
 ```java
 package com.js.domain.vo;
@@ -3265,7 +3265,7 @@ public class CommentVo {
     private List<CommentVo> children;
 }
 ```
-2. Modify _**CommentServiceImpl**_ as follows:
+2. Update _**CommentServiceImpl**_ as follows:
 
 ```java
 package com.js.service.impl;
@@ -3376,7 +3376,8 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
 
 ```text
 > d:
-> cd/redis/redis-server.exe redis.windows.conf
+> cd/redis
+> redis-server.exe redis.windows.conf
 ```
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/ab01ddcc-2dd8-4a58-9a3b-8693426ffcd6)
@@ -3387,19 +3388,366 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
 
 ##### 11.1.1 Comment table
 
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/a56399fc-807e-47ab-969e-091f1e90f3d5)
+
 ##### 11.1.2 Interface design
+
+<table>
+	<tr>
+		<td>Request Method</td>
+		<td>Request Path</td>
+		<td>Request Head</td>
+	</tr>
+	<tr>
+		<td>Post</td>
+		<td>/comment</td>
+		<td>'token' is needed, comment can be sent with login</td>
+	</tr>
+</table>
+
+**_[Request body]_**
+- When directly comment about an article and reply to a comment, type = 0.
+- If comment about a friend link, type =1
+```json
+{"articleId":1,"type":0,"rootId":-1,"toCommentId":-1,"toCommentUserId":-1,"content":"comment an article"}
+```
+```json
+{"articleId":1,"type":0,"rootId":"3","toCommentId":"3","toCommentUserId":"1","content":"reply to a comment"}
+```
+**_[Response format]_**
+```json
+{
+	"code":200,
+	"msg":"操作成功"
+}
+```
 
 ##### 11.1.3 Coding
 
+1. _**SecurityUtil**_ under Util package - encapsulation of method for getting userInfo form token
+
+```java
+package com.js.Utils;
+
+import com.js.domain.entity.LoginUser;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+
+//comment functionality utils
+public class SecurityUtil {
+
+    /**
+     * get userid
+     **/
+    public static LoginUser getLoginUser() {
+        return (LoginUser) getAuthentication().getPrincipal();
+    }
+
+    /**
+     * get Authentication
+     */
+    public static Authentication getAuthentication() {
+        return SecurityContextHolder.getContext().getAuthentication();
+    }
+
+    /**
+     * website admin is the one whose userId = 1
+     * @return
+     */
+    public static Boolean isAdmin(){
+        Long id = getLoginUser().getUser().getId();
+        return id != null && 1L == id;
+    }
+
+    public static Long getUserId() {
+        return getLoginUser().getUser().getId();
+    }
+}
+```
+
+2. _**MyMetaObjectHandler**_ under handler package - Mybatis' automatic field fill
+
+```java
+package com.js.handler.mybatisplus;
+
+import com.baomidou.mybatisplus.core.handlers.MetaObjectHandler;
+import com.js.Utils.SecurityUtil;
+import org.apache.ibatis.reflection.MetaObject;
+import org.springframework.stereotype.Component;
+
+import java.util.Date;
+
+/**
+ * @author js
+ * @date 2023/7/26 0026 20:52
+ */
+@Component
+//这个类是用来配置mybatis的字段自动填充。用于'发送评论'功能，由于我们在评论表无法对下面这四个字段进行插入数据(原因是前端在发送评论时，没有在
+//请求体提供下面四个参数，所以后端在往数据库插入数据时，下面四个字段是空值)，所有就需要这个类来帮助我们往下面这四个字段自动的插入值，
+//只要我们更新了评论表的字段，那么无法插入值的字段就自动有值了
+public class MyMetaObjectHandler implements MetaObjectHandler {
+
+    @Override
+    //只要对数据库执行了插入语句，那么就会执行到这个方法
+    public void insertFill(MetaObject metaObject) {
+        Long userId = null;
+        try {
+            //获取用户id
+            userId = SecurityUtil.getUserId();
+        } catch (Exception e) {
+            e.printStackTrace();
+            userId = -1L;//如果异常了，就说明该用户还没注册，我们就把该用户的userid字段赋值d为-1
+        }
+        //自动把下面四个字段新增了值。
+        this.setFieldValByName("createTime", new Date(), metaObject);
+        this.setFieldValByName("createBy",userId , metaObject);
+        this.setFieldValByName("updateTime", new Date(), metaObject);
+        this.setFieldValByName("updateBy", userId, metaObject);
+    }
+
+    @Override
+    public void updateFill(MetaObject metaObject) {
+        this.setFieldValByName("updateTime", new Date(), metaObject);
+        this.setFieldValByName(" ", SecurityUtil.getUserId(), metaObject);
+    }
+}
+```
+3. Update _**Comment**_ entity - for field fill
+
+```java
+package com.js.domain.entity;
+
+
+import java.util.Date;
+
+import java.io.Serializable;
+
+import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.TableField;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+
+
+@SuppressWarnings("serial")
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@TableName("comment")
+public class Comment  {
+    
+@TableId
+    private Long id;
+
+    
+
+    private String type;
+    
+
+    private Long articleId;
+    
+
+    private Long rootId;
+    
+
+    private String content;
+    
+
+    private Long toCommentUserId;
+    
+
+    private Long toCommentId;
+    
+    @TableField(fill = FieldFill.INSERT)
+    private Long createBy;
+
+    @TableField(fill = FieldFill.INSERT)
+    private Date createTime;
+
+    @TableField(fill = FieldFill.INSERT_UPDATE)
+    private Long updateBy;
+
+    @TableField(fill = FieldFill.INSERT_UPDATE)
+    private Date updateTime;
+    
+
+    private Integer delFlag;
+    
+}
+```
+
+4. Update _**CommentServiceImpl**_ - for addComment function
+
+```java
+@Override
+    public ResponseResult addComment(Comment comment) {
+
+        if(!StringUtils.hasText(comment.getContent())){
+            throw new SystemException(AppHttpCodeEnum.CONTENT_NOT_NULL);
+        }
+        //MP plus's method to automatically execute insert query
+        save(comment);
+        return ResponseResult.okResult();
+    }
+```
+
+5. Test
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/8a212553-93dc-4921-9921-cf379fb50798)
+
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/97ce077a-c2c4-4f58-b421-510515016c86)
 
 #### 11.2 Sending friend link comment
 
 ##### 11.2.1 Comment table
 
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/d5e330bc-cfbe-41d5-8e84-ea49745cb80c)
+
 ##### 11.2.2 Interface design
+
+<table>
+	<tr>
+		<td>Request Method</td>
+		<td>Request Path</td>
+		<td>Request Head</td>
+	</tr>
+	<tr>
+		<td>Get</td>
+		<td>/comment/LinkCommentList</td>
+		<td>'token' is not needed, Link comment can be sent without login</td>
+	</tr>
+</table>
+
+- Query request para
+> pageNum
+> pageSize
+
+- Response format
+```json
+{
+    "code": 200,
+    "data": {
+        "rows": [
+            {
+                "articleId": "1",
+                "children": [
+                    {
+                        "articleId": "1",
+                        "content": "reply to link comment 3",
+                        "createBy": "1",
+                        "createTime": "2022-01-30 10:08:50",
+                        "id": "23",
+                        "rootId": "22",
+                        "toCommentId": "22",
+                        "toCommentUserId": "1",
+                        "toCommentUserName": "sg333",
+                        "username": "sg333"
+                    }
+                ],
+                "content": "link commet 2",
+                "createBy": "1",
+                "createTime": "2022-01-30 10:08:28",
+                "id": "22",
+                "rootId": "-1",
+                "toCommentId": "-1",
+                "toCommentUserId": "-1",
+                "username": "sg333"
+            }
+        ],
+        "total": "1"
+    },
+    "msg": "operation success"
+}
+```
 
 ##### 11.2.3 Coding
 
+1. Update _**CommentController**_ (add commentType to distinguish artciel from friendLink)
 
+```java
+package com.js.controller;
+
+import com.js.constants.SystemConstants;
+import com.js.domain.ResponseResult;
+import com.js.domain.entity.Comment;
+import com.js.service.CommentService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/comment")
+public class CommentController {
+
+    @Autowired
+    private CommentService commentService;
+
+    @GetMapping("/commentList")
+    public ResponseResult commentList(Long articleId, Integer pageNum, Integer pageSize){
+        return commentService.commentList(SystemConstants.ARTICLE_COMMENT,articleId,pageNum,pageSize);
+    }
+
+    @PostMapping
+    public ResponseResult addComment(@RequestBody Comment comment){
+        return commentService.addComment(comment);
+    }
+
+    @GetMapping("/linkCommentList")
+    public ResponseResult linkCommentList(Integer pageNum, Integer pageSize){
+        return commentService.commentList(SystemConstants.LINK_COMMENT, null, pageNum, pageSize);
+    }
+}
+```
+
+2. Update **CommentList** method in  _**CommentServiceImpl**_ (add judging condition between article and friendLink)
+
+```java
+@Service("commentService")
+public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> implements CommentService {
+
+    @Autowired
+    private UserService userService;
+
+    @Override
+    public ResponseResult commentList(String commentType, Long articleId, Integer pageNum, Integer pageSize) {
+
+        LambdaQueryWrapper<Comment> queryWrapper = new LambdaQueryWrapper<>();
+
+        //inquire root comment of the corresponding article
+        //use articleId to inquire the corresponding article
+        //only check articleId when it's article comment
+        queryWrapper.eq(SystemConstants.ARTICLE_COMMENT.equals(commentType),Comment::getArticleId, articleId);
+
+        //the rootId of a root comment is -1
+        queryWrapper.eq(Comment::getRootId, COMMENT_ROOT);
+
+        //comment type
+        queryWrapper.eq(Comment::getType,commentType);
+
+        //paging query
+        Page<Comment> page = new Page<>(pageNum,pageSize);
+        page(page,queryWrapper);
+        List<CommentVo> commentVoList = toCommentVoList(page.getRecords());
+
+        //inquire all the children comment as a list
+        for (CommentVo commentVo : commentVoList) {
+
+            //inquire corresponding children comment of each root comment - through root_id
+            List<CommentVo> children = getChildrenComment(commentVo.getId());
+
+            //set value
+            commentVo.setChildren(children);
+        }
+
+        return ResponseResult.okResult(new PageVo(commentVoList,page.getTotal()));
+    }
+```
+3. Test
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/6185baa7-e176-48b0-9f5f-61c5133e35f0)
+
+## 12. 
 
 
