@@ -3418,7 +3418,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
 ```json
 {
 	"code":200,
-	"msg":"操作成功"
+	"msg":"operation success"
 }
 ```
 
@@ -3748,6 +3748,142 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/6185baa7-e176-48b0-9f5f-61c5133e35f0)
 
-## 12. 
+## 12. Blog FrontStage - Personal Center
+
+#### 12.1 Requirement 
+
+- After logging in, user should be able to see and update personal information in the personal center
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/d7699a2e-7a74-472c-96a2-b2da11c41909)
 
 
+#### 12.2 Interface design
+
+<table>
+	<tr>
+		<td>Request Method</td>
+		<td>Request Path</td>
+		<td>Request Head</td>
+	</tr>
+	<tr>
+		<td>Get</td>
+		<td>/user/userInfo</td>
+		<td>'token' is needed, personal center can be seen with login</td>
+	</tr>
+</table>
+
+- Response format
+
+```json
+{
+	"code":200,
+	"data":{
+		"avatar":"avatar address",
+		"email":"123@qq.com",
+		"id":"1",
+		"nickName":"username",
+		"sex":"1"
+	},
+	"msg":"operation success"
+}
+```
+#### 12.3 Coding 
+
+1. _**UserServiceImpl**_
+
+```java
+package com.js.service.impl;
+
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.js.Utils.BeanCopyUtil;
+import com.js.Utils.SecurityUtil;
+import com.js.domain.ResponseResult;
+import com.js.domain.entity.User;
+import com.js.domain.vo.UserInfoVo;
+import com.js.mapper.UserMapper;
+import com.js.service.UserService;
+import org.springframework.context.annotation.Bean;
+import org.springframework.stereotype.Service;
+
+@Service("userService")
+public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
+
+    @Override
+    public ResponseResult userInfo() {
+
+        //Get current userId
+        Long userId = SecurityUtil.getUserId();
+
+        //inquire userInfo by userId
+        User user = getById(userId);
+
+        //encapsulate into UserInfoVo
+        UserInfoVo vo = BeanCopyUtil.copyBean(user,UserInfoVo.class);
+
+        return ResponseResult.okResult(vo);
+    }
+}
+```
+
+2. _**UserController**_
+```java
+package com.js.controller;
+
+import com.js.domain.ResponseResult;
+import com.js.service.UserService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/user")
+public class UserController {
+
+    @Autowired
+    UserService userService;
+
+    @GetMapping("/userInfo")
+    public ResponseResult userInfo(){
+        return userService.userInfo();
+    }
+}
+```
+3. Update _**SecurityConfig**_
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/f960d4bf-1b07-4e0f-87eb-b96cf73bf156)
+
+4. **Test**
+
+Open Blog Vue and redis to test web page
+
+- Blog Vue
+
+```text
+> d:
+> cd/BlogWeb/js-blog-vue
+> npm run dev
+```
+- redis
+
+```text
+> d:
+> cd/redis
+> redis-server.exe redis.windows.conf
+```
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/4f0e59ca-9581-4c13-a2e9-c588c15804ff)
+
+## 13. Blog FrontStage - Avatar Uploading
+
+#### 13.1 Preparation
+
+##### 13.1.1
+
+##### 13.1.2
+
+##### 13.1.3
+
+#### 13.2 
+
+#### 13.3
