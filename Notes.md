@@ -3958,7 +3958,7 @@ public class OSStest {
         //  actual endpoint is sydney
         String endpoint = "https://oss-ap-southeast-2.aliyuncs.com";
         // Obtain access credentials from environment variables. Before you run the sample code, make sure that the OSS_ACCESS_KEY_ID and OSS_ACCESS_KEY_SECRET environment variables are configured.
-        //String accessKeyId = "LTAI5tFSaSC1b4cDVz3AoMNa";
+        //String accessKeyId = "LTAI5xxx";
         //String accessKeySecret = "xxx";
         CredentialsProvider credentialsProvider = new DefaultCredentialProvider(accessKeyId, accessKeySecret);
         //EnvironmentVariableCredentialsProvider credentialsProvider = CredentialsProviderFactory.newEnvironmentVariableCredentialsProvider();
@@ -4150,8 +4150,8 @@ public class UploadServiceImpl implements UploadService {
         //  actual endpoint is sydney
         String endpoint = "https://oss-ap-southeast-2.aliyuncs.com";
 
-        String accessId = "LTAI5tFSaSC1b4cDVz3AoMNa";
-        String accessSecret = "I5PFAg0Am9iW83I2aUbszUnvptZ4Wi";
+        String accessId = "xxx";
+        String accessSecret = "xxx";
         CredentialsProvider credentialsProvider = new DefaultCredentialProvider(accessId, accessSecret);
 
         //EnvironmentVariableCredentialsProvider credentialsProvider = CredentialsProviderFactory.newEnvironmentVariableCredentialsProvider();
@@ -4202,4 +4202,365 @@ public class UploadServiceImpl implements UploadService {
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/fafa4c10-3d19-47c2-9b97-14f3d6af176b)
 
 Test successful!
+
+#### 13.4 Blog FrontStage - Updating User Info
+
+##### 13.4.1 Interface design
+
+Update the user information into database after editing 
+<table>
+	<tr>
+		<td>Request method</td>
+		<td>Request path</td>
+		<td>Request head</td>
+	</tr>
+	<tr>
+		<td>PUT</td>
+		<td>/user/userInfo</td>
+		<td>token needed</td>
+	</tr>
+</table>
+
+- Request body
+```json
+{
+    "avatar":"picture url",
+    "email":"23412332@qq.com",
+    "id":"1",
+    "nickName":"userName",
+    "sex":"1"
+}
+```
+- Response format
+```json
+{
+	"code":200,
+	"msg":"operation success"
+}
+```
+
+##### 13.4.2 Coding
+
+1. Update _**UserService**_
+
+```java
+package com.js.service;
+
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.js.domain.ResponseResult;
+import com.js.domain.entity.User;
+
+
+public interface UserService extends IService<User> {
+
+    ResponseResult userInfo();
+
+    ResponseResult updateUserInfo(User user);
+}
+```
+
+2. Update _**UserServiceImpl**_
+
+```java
+package com.js.service.impl;
+
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.js.Utils.BeanCopyUtil;
+import com.js.Utils.SecurityUtil;
+import com.js.domain.ResponseResult;
+import com.js.domain.entity.User;
+import com.js.domain.vo.UserInfoVo;
+import com.js.mapper.UserMapper;
+import com.js.service.UserService;
+import org.springframework.context.annotation.Bean;
+import org.springframework.stereotype.Service;
+
+
+@Service("userService")
+public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
+
+    @Override
+    public ResponseResult userInfo() {
+
+        //Get current userId
+        Long userId = SecurityUtil.getUserId();
+
+        //inquire userInfo by userId
+        User user = getById(userId);
+
+        //encapsulate into UserInfoVo
+        UserInfoVo vo = BeanCopyUtil.copyBean(user,UserInfoVo.class);
+
+        return ResponseResult.okResult(vo);
+    }
+
+    @Override
+    public ResponseResult updateUserInfo(User user) {
+
+        updateById(user);
+
+        return ResponseResult.okResult();
+    }
+}
+```
+
+3. Update _**UserController**_
+
+```java
+package com.js.controller;
+
+import com.js.domain.ResponseResult;
+import com.js.domain.entity.User;
+import com.js.service.UserService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/user")
+public class UserController {
+
+    @Autowired
+    UserService userService;
+
+    @GetMapping("/userInfo")
+    public ResponseResult userInfo(){
+        return userService.userInfo();
+    }
+
+    @PutMapping("/userInfo")
+    public ResponseResult updateUserInfo(@RequestBody User user){
+        return userService.updateUserInfo(user);
+    }
+}
+```
+
+4. **Test**
+
+Open Blog Vue and redis to test web page
+
+- Blog Vue
+
+```text
+> d:
+> cd/BlogWeb/js-blog-vue
+> npm run dev
+```
+- redis
+
+```text
+> d:
+> cd/redis
+> redis-server.exe redis.windows.conf
+```
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/aaad6369-f024-47b0-b4a6-5f098ee6e0c7)
+
+User information has been updated successfully!
+
+## 14. Blog FrontStage - Registration
+
+#### 14.1 Interface design
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/1cce8d8e-d656-4be1-84fb-6adf529b2b33)
+
+- Username, email can not be duplicated with the information in the database, if yes, prompt proper msg to inform user.
+- Username, email, password can not be empty
+- Password should be stored into database in encrypted form
+
+<table>
+	<tr>
+		<td>Request method</td>
+		<td>Request path</td>
+		<td>Request head</td>
+	</tr>
+	<tr>
+		<td>Post</td>
+		<td>/user/register</td>
+		<td>token not needed</td>
+	</tr>
+</table>
+
+Request body
+```json
+{
+  "email": "string",
+  "nickName": "string",
+  "password": "string",
+  "userName": "string"
+}
+```
+Response format
+```json
+{
+	"code":200,
+	"msg":"operation success"
+}
+```
+
+#### 14.2 Coding 
+ 
+1. Update _**AppHttpCodeEnum**_
+
+```java
+package com.js.enums;
+
+public enum AppHttpCodeEnum {
+    // success
+    SUCCESS(200,"operation success"),
+    // login
+    NEED_LOGIN(401,"require login"),
+    NO_OPERATOR_AUTH(403,"no operation authority"),
+    SYSTEM_ERROR(500,"system error"),
+    USERNAME_EXIST(501,"username already existed"),
+    NICKNAME_EXIST(512,"nick name already existed"),
+    PHONENUMBER_EXIST(502,"phone number already existed"), EMAIL_EXIST(503, "email already existed"),
+    REQUIRE_USERNAME(504, "require username"),
+    LOGIN_ERROR(505,"The user name or password is incorrect"),
+    CONTENT_NOT_NULL(506,"content must not be empty" ),
+    FILE_TYPE_ERROR(507,"only accept .png file" ),
+    USERNAME_NOT_NULL(508,"username can not be empty" ),
+    NICKNAME_NOT_NULL(509,"nick name can not be empty" ),
+    PASSWORD_NOT_NULL(510,"password can not be empty" ),
+    EMAIL_NOT_NULL(511,"email name can not be empty" );
+
+    int code;
+    String msg;
+
+    AppHttpCodeEnum(int code, String errorMessage){
+        this.code = code;
+        this.msg = errorMessage;
+    }
+
+    public int getCode() {
+        return code;
+    }
+
+    public String getMsg() {
+        return msg;
+    }
+}
+```
+
+2. Update _**UserServiceImpl**_
+```java
+@Autowired
+    private PasswordEncoder passwordEncoder;
+
+    @Override
+    public ResponseResult register(User user) {
+
+        //do non-empty check - email,username,pass can not be empty
+         if(!StringUtils.hasText(user.getUserName())){
+            throw new SystemException(AppHttpCodeEnum.USERNAME_NOT_NULL);
+         }
+        if(!StringUtils.hasText(user.getPassword())){
+            throw new SystemException(AppHttpCodeEnum.PASSWORD_NOT_NULL);
+        }
+        if(!StringUtils.hasText(user.getNickName())){
+            throw new SystemException(AppHttpCodeEnum.NICKNAME_NOT_NULL);
+        }
+        if(!StringUtils.hasText(user.getEmail())){
+            throw new SystemException(AppHttpCodeEnum.EMAIL_NOT_NULL);
+        }
+
+        //do duplication check, if the input email is existed in DB
+        if(userNameExist(user.getUserName())){
+            throw new SystemException(AppHttpCodeEnum.USERNAME_EXIST);
+        }
+        if(emailExist(user.getEmail())){
+            throw new SystemException(AppHttpCodeEnum.EMAIL_EXIST);
+        }
+        if(nickNameExist(user.getNickName())){
+            throw new SystemException(AppHttpCodeEnum.NICKNAME_EXIST);
+        }
+
+        //password encryption
+        String encodedPassword = passwordEncoder.encode(user.getPassword());
+        user.setPassword(encodedPassword);
+
+        //store into DB
+        save(user);
+
+        return ResponseResult.okResult();
+    }
+
+    private boolean nickNameExist(String nickName) {
+        LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(User::getNickName,nickName);
+        return count(queryWrapper) > 0;
+    }
+
+    private boolean emailExist(String email) {
+        LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(User::getEmail,email);
+        return count(queryWrapper) > 0;
+    }
+
+    private boolean userNameExist(String userName) {
+        LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(User::getUserName,userName);
+        return count(queryWrapper) > 0;
+    }
+```
+
+3. Update _**UserController**_ - register method
+```java
+package com.js.controller;
+
+import com.js.domain.ResponseResult;
+import com.js.domain.entity.User;
+import com.js.service.UserService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/user")
+public class UserController {
+
+    @Autowired
+    UserService userService;
+
+    @GetMapping("/userInfo")
+    public ResponseResult userInfo(){
+        return userService.userInfo();
+    }
+
+    @PutMapping("/userInfo")
+    public ResponseResult updateUserInfo(@RequestBody User user){
+        return userService.updateUserInfo(user);
+    }
+
+    @PostMapping("/register")
+    public ResponseResult register(@RequestBody User user){
+        return userService.register(user);
+    }
+}
+```
+
+4. **Test**
+
+Open Blog Vue and redis to test web page
+
+- Blog Vue
+
+```text
+> d:
+> cd/BlogWeb/js-blog-vue
+> npm run dev
+```
+- redis
+
+```text
+> d:
+> cd/redis
+> redis-server.exe redis.windows.conf
+```
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/75314c46-bd8d-4bd8-a9ca-a4b673d8d51a)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/0665ee89-21ff-40c9-9997-d3191c0e2ed9)
+
+**User has been add into database**
+
+## 15. 
 
