@@ -3876,14 +3876,330 @@ Open Blog Vue and redis to test web page
 
 ## 13. Blog FrontStage - Avatar Uploading
 
-#### 13.1 Preparation
+#### 13.1 OSS preparation - Alibaba cloud
 
-##### 13.1.1
+- Reason: If user upload files such as pictures and videos to a directory of the application's Web server, it will take up too much resources when reading pictures, And the performance of the application server is affected. Therefore, we choose to use OSS(Object Storage Service) to store pictures or videos
 
-##### 13.1.2
+- Create a new account in Alibaba cloud, new a bucket
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/d647f107-85ff-4b3b-bd00-f3be346851d5)
 
-##### 13.1.3
+- Add dependencies from documentation center
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/f99ba7dc-50f6-4069-bba7-d237b9a36fe1)
 
-#### 13.2 
+```xml
+<!--ali cloud OSS-->
+        <dependency>
+            <groupId>com.aliyun.oss</groupId>
+            <artifactId>aliyun-sdk-oss</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>javax.xml.bind</groupId>
+            <artifactId>jaxb-api</artifactId>
+            <version>2.3.1</version>
+        </dependency>
+        <dependency>
+            <groupId>javax.activation</groupId>
+            <artifactId>activation</artifactId>
+            <version>1.1.1</version>
+        </dependency>
+        <!-- no more than 2.3.3-->
+```
+- Copy demo code to implement file upload stream
 
-#### 13.3
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/d52eda34-c796-42bb-8c77-884e1ce43e90)
+
+- Upadate _**application.yml**_
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/fd1d7724-7221-4a0b-ad74-5e4bb66a1819)
+
+- Modify demo code as follows
+
+```java
+package com.js;
+
+import com.aliyun.oss.ClientException;
+import com.aliyun.oss.OSS;
+import com.aliyun.oss.common.auth.*;
+import com.aliyun.oss.OSSClientBuilder;
+import com.aliyun.oss.OSSException;
+import com.aliyun.oss.model.PutObjectRequest;
+import com.aliyun.oss.model.PutObjectResult;
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.stereotype.Component;
+
+import java.io.FileInputStream;
+import java.io.InputStream;
+
+@Component
+@SpringBootTest
+@ConfigurationProperties(prefix = "oss")
+public class OSStest {
+
+    static private String accessKeyId;
+    static private String accessKeySecret;
+    static private String bucketName;
+
+    public void setAccessKeyId(String accessKeyId) {
+        this.accessKeyId = accessKeyId;
+    }
+
+    public void setAccessKeySecret(String accessKeySecret) {
+        this.accessKeySecret = accessKeySecret;
+    }
+
+    public void setBucketName(String bucketName) {
+        this.bucketName = bucketName;
+    }
+
+    @Test
+    public void test () throws Exception {
+        //  actual endpoint is sydney
+        String endpoint = "https://oss-ap-southeast-2.aliyuncs.com";
+        // Obtain access credentials from environment variables. Before you run the sample code, make sure that the OSS_ACCESS_KEY_ID and OSS_ACCESS_KEY_SECRET environment variables are configured.
+        //String accessKeyId = "LTAI5tFSaSC1b4cDVz3AoMNa";
+        //String accessKeySecret = "xxx";
+        CredentialsProvider credentialsProvider = new DefaultCredentialProvider(accessKeyId, accessKeySecret);
+        //EnvironmentVariableCredentialsProvider credentialsProvider = CredentialsProviderFactory.newEnvironmentVariableCredentialsProvider();
+        // Specify the name of the bucket. Example: examplebucket.
+        //String bucketName = "js-blog";
+        // Specify the full path of the object. Do not include the bucket name in the full path. Example: exampledir/exampleobject.txt.
+        String objectName = "avatar1.jpg";
+        // Specify the full path of the local file that you want to upload. Example: D:\\localpath\\examplefile.txt.
+        // If you do not specify the path of the local file, the local file is uploaded from the path of the project to which the sample program belongs.
+        String filePath= "D:\\pics\\1.jpg";
+
+        // Create an OSSClient instance.
+        OSS ossClient = new OSSClientBuilder().build(endpoint, credentialsProvider);
+
+        try {
+            InputStream inputStream = new FileInputStream(filePath);
+            // Create a PutObjectRequest object.
+            PutObjectRequest putObjectRequest = new PutObjectRequest(bucketName, objectName, inputStream);
+            // Create a PutObject request.
+            PutObjectResult result = ossClient.putObject(putObjectRequest);
+        } catch (OSSException oe) {
+            System.out.println("Caught an OSSException, which means your request made it to OSS, "
+                    + "but was rejected with an error response for some reason.");
+            System.out.println("Error Message:" + oe.getErrorMessage());
+            System.out.println("Error Code:" + oe.getErrorCode());
+            System.out.println("Request ID:" + oe.getRequestId());
+            System.out.println("Host ID:" + oe.getHostId());
+        } catch (ClientException ce) {
+            System.out.println("Caught an ClientException, which means the client encountered "
+                    + "a serious internal problem while trying to communicate with OSS, "
+                    + "such as not being able to access the network.");
+            System.out.println("Error Message:" + ce.getMessage());
+        } finally {
+            if (ossClient != null) {
+                ossClient.shutdown();
+            }
+        }
+    }
+}
+```
+- Run the test code and the image file has been uploaded
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/c570f099-78ac-4b1c-a8af-b637f6391077)
+
+
+#### 13.2 Interface design
+
+<table>
+	<tr>
+		<td>Request method</td>
+		<td>Request path</td>
+		<td>Request head</td>
+	</tr>
+	<tr>
+		<td>POST</td>
+		<td>/upload</td>
+		<td>token needed</td>
+	</tr>
+</table>
+
+Parameter:
+> < .img > - the file user want to upload
+
+Request head:
+> Content-Type ：multipart/form-data;
+
+Response format:
+```json
+{
+    "code": 200,
+    "data": "Url to access the file",
+    "msg": "operation success"
+}
+```
+
+#### 13.3 Coding
+
+1. _**PathUtils**_ under Utils
+
+```java
+package com.js.Utils;
+
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.UUID;
+
+//modify fileName of original file, and modify saving directory
+public class PathUtils {
+
+    public static String generateFilePath(String fileName){
+        //generate path according to date   2022/1/15/
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd/");
+        String datePath = sdf.format(new Date());
+        //uuid as fileName
+        String uuid = UUID.randomUUID().toString().replaceAll("-", "");
+        //suffix should be the same
+        int index = fileName.lastIndexOf(".");
+        // test.jpg -> .jpg
+        String fileType = fileName.substring(index);
+        return new StringBuilder().append(datePath).append(uuid).append(fileType).toString();
+    }
+}
+```
+
+2. _**UploadController**_
+
+```java
+package com.js.controller;
+
+import com.js.domain.ResponseResult;
+import com.js.service.UploadService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+@RestController
+public class UploadController {
+
+    @Autowired
+    private UploadService uploadService;
+
+    @PostMapping("/upload")
+    public ResponseResult UploadImg(MultipartFile img){
+        return uploadService.uploadImg(img);
+    }
+}
+
+```
+3. _**UploadServiceImpl**_
+
+```java
+package com.js.service.impl;
+
+import com.aliyun.oss.ClientException;
+import com.aliyun.oss.OSS;
+import com.aliyun.oss.OSSClientBuilder;
+import com.aliyun.oss.OSSException;
+import com.aliyun.oss.common.auth.CredentialsProvider;
+import com.aliyun.oss.common.auth.DefaultCredentialProvider;
+import com.aliyun.oss.model.PutObjectRequest;
+import com.aliyun.oss.model.PutObjectResult;
+import com.js.Utils.PathUtils;
+import com.js.domain.ResponseResult;
+import com.js.enums.AppHttpCodeEnum;
+import com.js.exception.SystemException;
+import com.js.service.UploadService;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.io.InputStream;
+
+@Service
+@Data
+@AllArgsConstructor
+//@ConfigurationProperties(prefix = "oss")
+public class UploadServiceImpl implements UploadService {
+
+    @Override
+    public ResponseResult uploadImg(MultipartFile img) {
+
+        //check the file type
+        //inquire file name
+        String originalFilename = img.getOriginalFilename();
+
+        //if file type is not png or jpg, throw exception
+        if(!originalFilename.endsWith(".png") && !originalFilename.endsWith(".jpg")){
+            throw new SystemException(AppHttpCodeEnum.FILE_TYPE_ERROR);
+        }
+
+        //if passed check, upload file to OSS
+        String filePath = PathUtils.generateFilePath(originalFilename);
+        String url = uploadOSS(img,filePath);
+
+        return ResponseResult.okResult(url);
+    }
+
+
+    //static private String accessId;
+    static private String accessSecret;
+    static private String bucketName;
+
+    private String uploadOSS(MultipartFile img, String filePath)  {
+
+        //  actual endpoint is sydney
+        String endpoint = "https://oss-ap-southeast-2.aliyuncs.com";
+
+        String accessId = "LTAI5tFSaSC1b4cDVz3AoMNa";
+        String accessSecret = "I5PFAg0Am9iW83I2aUbszUnvptZ4Wi";
+        CredentialsProvider credentialsProvider = new DefaultCredentialProvider(accessId, accessSecret);
+
+        //EnvironmentVariableCredentialsProvider credentialsProvider = CredentialsProviderFactory.newEnvironmentVariableCredentialsProvider();
+
+        // Specify the name of the bucket. Example: examplebucket.
+        String bucketName = "js-blog";
+
+        String objectName = filePath;
+
+        // Create an OSSClient instance.
+        OSS ossClient = new OSSClientBuilder().build(endpoint, credentialsProvider);
+
+        try {
+            InputStream inputStream = img.getInputStream();
+            // Create a PutObjectRequest object.
+            PutObjectRequest putObjectRequest = new PutObjectRequest(bucketName, objectName, inputStream);
+            // Create a PutObject request.
+            PutObjectResult result = ossClient.putObject(putObjectRequest);
+
+            return "https://js-blog.oss-ap-southeast-2.aliyuncs.com/" + filePath;
+        } catch (OSSException oe) {
+            System.out.println("Caught an OSSException, which means your request made it to OSS, "
+                    + "but was rejected with an error response for some reason.");
+            System.out.println("Error Message:" + oe.getErrorMessage());
+            System.out.println("Error Code:" + oe.getErrorCode());
+            System.out.println("Request ID:" + oe.getRequestId());
+            System.out.println("Host ID:" + oe.getHostId());
+        } catch (ClientException ce) {
+            System.out.println("Caught an ClientException, which means the client encountered "
+                    + "a serious internal problem while trying to communicate with OSS, "
+                    + "such as not being able to access the network.");
+            System.out.println("Error Message:" + ce.getMessage());
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            if (ossClient != null) {
+                ossClient.shutdown();
+            }
+        }
+        return "Uploading fail";
+    }
+}
+```
+4. Use **Postman** to test
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/0395d2e0-ad7a-42e1-92b3-68f38283dfa2)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/fafa4c10-3d19-47c2-9b97-14f3d6af176b)
+
+Test successful!
+
