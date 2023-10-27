@@ -4562,5 +4562,231 @@ Open Blog Vue and redis to test web page
 
 **User has been add into database**
 
-## 15. 
+## 15. Blog FrontStage - Log 
+
+#### 15.1 Requirement analysis 
+
+- Using log to record information when interfaces are called and used
+- Application of AOP to realize the log recording because many interfaces need to record log
+- It is a proper situation to use AOP for decoupling and not modify original service code
+
+Output format: 
+```java
+log.info("======================Start======================");
+        // print request URL
+        log.info("URL            : {}",);
+        // print description info
+        log.info("BusinessName   : {}",);
+        // print Http method
+        log.info("HTTP Method    : {}",);
+        // whole type name & method name of controller
+        log.info("Class Method   : {}.{}",);
+        // print request IP
+        log.info("IP             : {}",);
+        // print request passed param, cast args array to json
+        log.info("Request Args   : {}", );
+log.info("======================End======================" + System.lineSeparator()); // linefeed method of system
+```
+#### 15.2 Procedure 
+1. Define aspect class
+2. Use cutomized annotation infterface to determine the join point in aspect class
+3. In aspect class, implement advice method on specific join point
+
+There are 5 advice methods in AOP:
+<table>
+	<tr>
+		<td>Advice method</td>
+		<td>Description</td>
+	</tr>
+	<tr>
+		<td>Before advice</td>
+		<td>Excecute advice before a method</td>
+	</tr>
+	<tr>
+		<td>After advice</td>
+		<td>Excecute advice before a method</td>
+	</tr>
+	<tr>
+		<td>After-returning advice</td>
+		<td>Excecute advice finally, no matter the method is successfully excecuted or not</td>
+	</tr>
+	<tr>
+		<td>After-throwing advice</td>
+		<td>Excecute advice when exception is throwed</td>
+	</tr>
+	<tr>
+		<td>Around advice</td>
+		<td>Execute advice before and after of a join point</td>
+	</tr>
+</table>
+
+#### 15.3 Coding
+1. Create _**SystemLog**_ annotation interface under shared module
+```java
+package com.js.annotation;
+
+import org.aspectj.lang.annotation.Around;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+@Retention(RetentionPolicy.RUNTIME) //which phase to maintain
+@Target({ElementType.METHOD}) //is used on method
+//customize annotation
+public @interface SystemLog {
+
+    String businessName();
+}
+```
+
+2. Create _**LogAspect**_ aspect class under shared module
+```java
+package com.js.aspect;
+
+import com.alibaba.fastjson.JSON;
+import com.js.annotation.SystemLog;
+import lombok.extern.slf4j.Slf4j;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.annotation.Around;
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.Pointcut;
+import org.aspectj.lang.reflect.MethodSignature;
+import org.springframework.stereotype.Component;
+import org.springframework.web.context.request.RequestAttributes;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+
+import javax.servlet.http.HttpServletRequest;
+import java.lang.reflect.Method;
+
+@Component
+@Aspect
+@Slf4j
+// aspect class of AOP
+public class LogAspect {
+
+    @Pointcut("@annotation(com.js.annotation.SystemLog)")
+    public void pt(){
+
+    }
+
+    //Around notification
+    @Around("pt()")
+    public Object printLog(ProceedingJoinPoint joinPoint) throws Throwable {
+
+        //do not use try/catch in here, because we want SystemException I defined to catch exception
+        Object ret;
+        try {
+            handleBefore(joinPoint);
+            ret = joinPoint.proceed();
+            handleAfter(ret);
+        } finally {
+            //print "end" anyway
+            log.info("======================End======================" + System.lineSeparator()); // linefeed method of system
+        }
+
+        return  ret;
+    }
+
+    private void handleAfter(Object ret) {
+        //print output param
+        log.info("Response       : {}", JSON.toJSONString(ret));
+    }
+
+    private void handleBefore(ProceedingJoinPoint joinPoint) {
+
+
+        //get request
+        ServletRequestAttributes requestAttributes = (ServletRequestAttributes)RequestContextHolder.getRequestAttributes();
+
+        HttpServletRequest request = requestAttributes.getRequest();
+
+        //get annotation object on certain method
+        SystemLog systemLog = getSystemLog(joinPoint);
+
+        log.info("======================Start======================");
+        // print request URL
+        log.info("URL            : {}",request.getRequestURL());
+        // print description info
+        log.info("BusinessName   : {}",systemLog.businessName());
+        // print Http method
+        log.info("HTTP Method    : {}",request.getMethod());
+        // whole type name & method name of controller
+        log.info("Class Method   : {}.{}",joinPoint.getSignature().getDeclaringTypeName(),((MethodSignature) joinPoint.getSignature()).getName());
+        // print request IP
+        log.info("IP             : {}",request.getRemoteHost());
+        // print request passed param, cast args array to json
+        log.info("Request Args   : {}", JSON.toJSONString(joinPoint.getArgs()));
+    }
+
+    private SystemLog getSystemLog(ProceedingJoinPoint joinPoint) {
+        MethodSignature methodSignature = (MethodSignature) joinPoint.getSignature();
+        SystemLog systemLog = methodSignature.getMethod().getAnnotation(SystemLog.class);
+        return systemLog;
+    }
+}
+```
+
+3. Modify _**UserController**_, add _SystemLog_ annotation on _updateUserInfo_ method to test
+```java
+package com.js.controller;
+
+import com.js.annotation.SystemLog;
+import com.js.domain.ResponseResult;
+import com.js.domain.entity.User;
+import com.js.service.UserService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/user")
+public class UserController {
+
+    @Autowired
+    UserService userService;
+
+    @GetMapping("/userInfo")
+    public ResponseResult userInfo(){
+        return userService.userInfo();
+    }
+
+    @PutMapping("/userInfo")
+    @SystemLog(businessName = "update user info")
+    public ResponseResult updateUserInfo(@RequestBody User user){
+        return userService.updateUserInfo(user);
+    }
+
+    @PostMapping("/register")
+    public ResponseResult register(@RequestBody User user){
+        return userService.register(user);
+    }
+}
+```
+
+#### 15.4 Test
+Open Blog Vue and redis to test web page
+
+- Blog Vue
+
+```text
+> d:
+> cd/BlogWeb/js-blog-vue
+> npm run dev
+```
+- redis
+
+```text
+> d:
+> cd/redis
+> redis-server.exe redis.windows.conf
+```
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/20b1e99e-afbf-4343-98d4-d7f88c358c93)
+
+**Vist Web Page to test log infomation**
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/8d5d4772-f902-4433-aa67-77ba832d8ff9)
+
 
