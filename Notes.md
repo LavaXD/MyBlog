@@ -4789,4 +4789,239 @@ Open Blog Vue and redis to test web page
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/8d5d4772-f902-4433-aa67-77ba832d8ff9)
 
+## 16. Blog FrontStage - Update viewCount
 
+#### 16.1 Preparation - Procedure analysis
+
+Update the blog view count when an article is viewd by user, but update the view count in redis first, and then update in the database to reduce traffic when concurrent volume is huge.
+1. Transfer the view count data from database to redis when the application is initialized - preprocessing function
+2. Only update the view count data in redis when viewCount increase
+3. Update view count data into database from redis every 5 mins - timed task
+4. Read view count data from redis when needed
+
+#### 16.2 Preparation - preprocessing function
+
+**CommandLineRunner** interface can be used when initialization operation is needed. Firstly, it is required to implement this interface and inject the corresponding bean into SpringBoot, and then the method in the implementation class will be executed when the application is initialized. 
+
+1. Create _**TestRunner**_ under frontstage module
+```java
+package com.js.runner;
+
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.stereotype.Component;
+
+@Component
+public class TestRunner implements CommandLineRunner {
+    @Override
+    public void run(String... args) throws Exception {
+        System.out.println("initialization...");
+    }
+}
+```
+2. Run the application, the message in the method is successfully printed
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/81e2fc48-96a8-4ed2-b2c4-e4776f827265)
+
+
+#### 16.3 Preparation - timed task
+
+A scheduling API provided by SpringBoot is used here to realize a simple timed task.
+1. Using **@EnableScheduling** in the initialization class to enable timed task
+```java
+package com.js;
+
+import org.mybatis.spring.annotation.MapperScan;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
+
+@SpringBootApplication
+@MapperScan("com.js.mapper")
+@EnableScheduling
+public class BlogApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(BlogApplication.class,args);
+    }
+
+}
+```
+2. Complete task code, and configure the duration of the task - use **@Scheduled** and **cron** expression to configure timed task
+```java
+package com.js.job;
+
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
+
+@Component
+public class TestJob {
+
+    @Scheduled(cron = "0/5 * * * * ? *")
+    public void testJob(){
+
+        //task need to execute
+        System.out.println("timed task is executed...");
+    }
+
+}
+```
+Run the application, the message is printed every 5 seconds 
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/3695bfb4-91a2-4183-9fa2-f7b040fff205) 
+
+#### 16.4 Interface design
+
+<table>
+	<tr>
+		<td>Request Method</td>
+		<td>Request Path</td>
+		<td>Request Head</td>
+	</tr>
+	<tr>
+		<td>PUT</td>
+		<td>/article/updateViewCount/{id}</td>
+		<td>token is not needed here</td>
+	</tr>
+</table>
+
+Parameter
+> **articleId** is carried in request path
+
+Response format 
+```json
+{
+	"code":200,
+	"msg":"operation success"
+}
+```
+#### 16.5 Coding 
+
+##### 16.5.1 Preprocessing 
+1. When the application is initialized, store 'id', 'viewCount' as a map from database to redis
+create _**runner.ViewCountRunner**_ under frontstage module
+
+```java
+package com.js.runner;
+
+import com.js.Utils.RedisCache;
+import com.js.domain.entity.Article;
+import com.js.mapper.ArticleMapper;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+@Component
+public class ViewCountRunner implements CommandLineRunner {
+
+    @Autowired
+    private ArticleMapper articleMapper;
+
+    @Autowired
+    private RedisCache redisCache;
+
+    @Override
+    public void run(String... args) throws Exception {
+
+        //inquire blog info -> id, viewCount
+        List<Article> articles = articleMapper.selectList(null);
+        Map<String, Integer> viewCountMap = articles.stream()
+                .collect(Collectors.toMap(article -> article.getId().toString(), article -> {
+                    return article.getViewCount().intValue(); // long type can not increment in redis, so Integer is used here
+                }));
+
+        //store into redis
+        redisCache.setCacheMap("viewCount",viewCountMap);
+    }
+}
+```
+
+2. Test
+
+- open redis
+
+```text
+> d:
+> cd/redis
+> redis-server.exe redis.windows.conf
+```
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/0fc5b6eb-e3d2-4371-8cf4-54c3c23335b6)
+
+##### 16.5.2 ViewCount increment
+
+1. Add _**incrementCacheMapValue**_ method in **RedisCache** class under shared module
+```java
+/**
+     * increments the value of a hash structure in redis
+     * @param key
+     * @param hKey
+     * @param value
+     */
+public void incrementCacheMapValue(String key, String hKey, int value){
+        redisTemplate.opsForHash().increment(key,hKey,value);
+    }
+```
+
+2. Add _**updateViewCount**_ method in **ArticleServiceImpl** class
+```java
+@Override
+    public ResponseResult updateViewCount(Long id) {
+
+        //update viewCount of corresponding article in redis
+        redisCache.incrementCacheMapValue("viewCount", id.toString(),1);
+        return ResponseResult.okResult();
+    }
+```
+
+3. Add _**updateViewCount**_ in **ArticleService** class 
+```java
+package com.js.service;
+
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.js.domain.ResponseResult;
+import com.js.domain.entity.Article;
+
+public interface ArticleService extends IService<Article> {
+    ResponseResult hotArticleList();
+
+    ResponseResult articleList(Integer pageNum, Integer pageSize, Long categoryId);
+
+    ResponseResult getArticleDetail(Long id);
+
+    ResponseResult updateViewCount(Long id);
+}
+```
+4. Add _**updateViewCount**_ method in **ArticleController**
+```java
+@PutMapping("/updateViewCount/{id}")
+    public ResponseResult updateViewCount(@PathVariable("id") Long id){
+        return articleService.updateViewCount(id);
+    }
+```
+
+5. **Test**
+Open Blog Vue and redis to test web page
+
+- Blog Vue
+
+```text
+> d:
+> cd/BlogWeb/js-blog-vue
+> npm run dev
+```
+- redis
+
+```text
+> d:
+> cd/redis
+> redis-server.exe redis.windows.conf
+```
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/67d6fe44-0878-434e-bef3-db38eca36f32)
+
+##### 16.5.3 Data synchronization 
+
+##### 16.5.4 Inquire from redis
