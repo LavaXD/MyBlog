@@ -5023,5 +5023,261 @@ Open Blog Vue and redis to test web page
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/67d6fe44-0878-434e-bef3-db38eca36f32)
 
 ##### 16.5.3 Data synchronization 
+1. Create _**UpdateViewCountJob**_ under **job** package under Frontstage module
+```java
+package com.js.job;
 
-##### 16.5.4 Inquire from redis
+import com.js.Utils.RedisCache;
+import com.js.domain.entity.Article;
+import com.js.service.ArticleService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+@Component
+public class UpdateViewCountJob {
+
+    @Autowired
+    private RedisCache redisCache;
+
+    @Autowired // because batch operation is needed here, so articleService is used with 'IService' interface
+    private ArticleService articleService;
+
+    @Scheduled(cron = "0/5 * * * * ?")
+    public void updateViewCount(){
+
+        //get viewCount from redis
+        Map<String, Integer> viewCountMap = redisCache.getCacheMap("viewCount");
+
+        //in 'updateBatchById' method, parameter is a collection, so map 'viewCountMap' should be transferred into a collection
+        List<Article> articles = viewCountMap.entrySet()
+                .stream()
+                .map(entry -> new Article(Long.valueOf(entry.getKey()), entry.getValue().longValue()))
+                .collect(Collectors.toList());
+
+        //update thew viewCount into database
+        articleService.updateBatchById(articles);
+    }
+}
+```
+
+2. **Test**
+Visit the web page to test **viewCount** update
+
+Open Blog Vue and redis to test web page
+
+- Blog Vue
+
+```text
+> d:
+> cd/BlogWeb/js-blog-vue
+> npm run dev
+```
+- redis
+
+```text
+> d:
+> cd/redis
+> redis-server.exe redis.windows.conf
+```
+- redis cli
+
+```text
+> d:
+> cd/redis
+> redis-cli
+> hgetall viewCount
+```
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/8a38d82f-7027-4ecb-96dd-e3c48b3c0aa2)
+
+##### 16.5.4 Inquire 'viewCount' from redis instead of database
+
+- Update **getArticelDetail** & **hotArticleList** functions in **ArticleServiceImpl**
+- add updating 'viewCount' from redis code 
+  
+```java
+package com.js.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.fasterxml.jackson.databind.util.BeanUtil;
+import com.js.Utils.BeanCopyUtil;
+import com.js.Utils.RedisCache;
+import com.js.constants.SystemConstants;
+import com.js.domain.ResponseResult;
+import com.js.domain.entity.Article;
+import com.js.domain.entity.Category;
+import com.js.domain.vo.ArticleDetailVo;
+import com.js.domain.vo.ArticleListVo;
+import com.js.domain.vo.HotArticleVo;
+import com.js.domain.vo.PageVo;
+import com.js.mapper.ArticleMapper;
+import com.js.service.ArticleService;
+import com.js.service.CategoryService;
+import io.swagger.models.Response;
+import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+@Service
+public class ArticleServiceImpl extends ServiceImpl<ArticleMapper,Article> implements ArticleService {
+
+    @Autowired //using categoryService to inquire categoryId and categoryName
+    private CategoryService categoryService;
+
+    @Autowired
+    private ArticleService articleService;
+
+    @Autowired
+    private RedisCache redisCache;
+
+    //------------------------------------------------- hotArticleList ----------------------------------------------------------
+    @Override
+    //inquire hot articles, return ResponseResult
+    public ResponseResult hotArticleList() {
+
+        //update viewCount for hotArticleList from redis
+        Map<String, Integer> viewCountMap = redisCache.getCacheMap("viewCount");
+            //use entrySet method to convert 'viewCountMap' from diallel set to single set
+        List<Article> articleList = viewCountMap.entrySet()
+                .stream()
+                .map(entry -> new Article(Long.valueOf(entry.getKey()), entry.getValue().longValue()))
+                .collect(Collectors.toList());
+        //use 'articleService' updateBatchById method
+        articleService.updateBatchById(articleList);
+
+        LambdaQueryWrapper<Article> queryWrapper = new LambdaQueryWrapper<>();
+        //it has to be a completed, formal article
+        queryWrapper.eq(Article::getStatus, SystemConstants.ARTICLE_STATUS_NORMAL);
+
+        //order by view count
+        queryWrapper.orderByDesc(Article::getViewCount);
+
+        //max hot articles amount: 10
+        Page<Article> page = new Page<>(1,10);
+        page(page,queryWrapper);
+
+        List<Article> articles = page.getRecords();
+
+        //bean copy
+//        List<HotArticleVo> articleVos =new ArrayList<>();
+//        for(Article article:articles){
+//            HotArticleVo articleVo = new HotArticleVo();
+//            BeanUtils.copyProperties(article,articleVo);
+//            articleVos.add(articleVo);
+//        }
+
+        List<HotArticleVo> hotArticleVos = BeanCopyUtil.copyBeanList(articles, HotArticleVo.class);
+        return ResponseResult.okResult(hotArticleVos);
+    }
+
+    //------------------------------------------------- articleList ---------------------------------------------------------
+    @Override
+    public ResponseResult articleList(Integer pageNum, Integer pageSize, Long categoryId) {
+
+        //inquire conditions
+        LambdaQueryWrapper<Article> queryWrapper = new LambdaQueryWrapper<>();
+
+            //if categoryId is available, it should remain the same when inquiring
+            //if categoryId is not null, and it is > 0(maybe it's -1 from frontend), and then check if they are the same
+        queryWrapper.eq(Objects.nonNull(categoryId) && categoryId > 0,Article::getCategoryId,categoryId);
+
+            //the "status" of an article has to be "normal"
+        queryWrapper.eq(Article::getStatus,SystemConstants.ARTICLE_STATUS_NORMAL);
+
+            //sort "istop" column in descending order, so that those articles whoes "istop" is 1 can be at top
+        queryWrapper.orderByDesc(Article::getIsTop);
+
+        //Paging query
+        Page<Article> page = new Page<>(pageNum, pageSize);
+        page(page, queryWrapper);
+
+        //inquire categoryName
+        List<Article> articles = page.getRecords();
+//        //using articleId to config articleName
+//        for (Article article : articles) {
+//            Category category = categoryService.getById(article.getCategoryId());
+//            article.setCategoryName(category.getName());
+//        }
+        articles.stream()
+                //get categoryId by articleId, get categoryName by categoryId
+                .map(article -> article.setCategoryName(categoryService.getById(article.getCategoryId()).getName()))
+                .collect(Collectors.toList());
+
+        //encapsulate query result
+        List<ArticleListVo> articleListVos = BeanCopyUtil.copyBeanList(page.getRecords(), ArticleListVo.class);
+
+        //use PageVo class to encapsulate articleListVos as rows and total attribute, and then return pageVo object as a complete data object
+        PageVo pageVo = new PageVo(articleListVos,page.getTotal());
+
+        return ResponseResult.okResult(pageVo);
+    }
+
+    //------------------------------------------------- ArticleDetail -------------------------------------------------------
+    @Override
+    public ResponseResult getArticleDetail(Long id) {
+
+        //inquire article by articleId
+        Article article = getById(id);
+
+        //get viewCount from redis
+        Integer viewCount = redisCache.getCacheMapValue("viewCount", id.toString());
+        article.setViewCount(viewCount.longValue());
+
+        //convert to vo
+        ArticleDetailVo articleDetailVo = BeanCopyUtil.copyBean(article, ArticleDetailVo.class);
+
+        //inquire categoryName by categoryId
+        Long categoryId = articleDetailVo.getCategoryId();
+        Category category = categoryService.getById(categoryId);
+        if(category != null){
+            articleDetailVo.setCategoryName(category.getName());
+        }
+
+        //encapsulation and return
+        return ResponseResult.okResult(articleDetailVo);
+    }
+
+    @Override
+    public ResponseResult updateViewCount(Long id) {
+
+        //update viewCount of corresponding article in redis
+        redisCache.incrementCacheMapValue("viewCount", id.toString(),1);
+        return ResponseResult.okResult();
+    }
+}
+
+```
+#### 16.6 Test 
+Open Blog Vue and redis to test web page
+
+- Blog Vue
+
+```text
+> d:
+> cd/BlogWeb/js-blog-vue
+> npm run dev
+```
+- redis
+
+```text
+> d:
+> cd/redis
+> redis-server.exe redis.windows.conf
+```
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/64cc4f90-19ab-4c0b-9228-fcb42b2a719d)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/7f86fa32-17b2-4479-9514-068b8c2c8782)
+
+## 17 Swagger2
