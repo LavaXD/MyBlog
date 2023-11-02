@@ -5281,3 +5281,308 @@ Open Blog Vue and redis to test web page
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/7f86fa32-17b2-4479-9514-068b8c2c8782)
 
 ## 17 Swagger2
+
+#### 17.1 Swagger2 - QuickStart
+1. Add dependency into pom file of shared module
+```xml
+<!-- Swagger2 -->
+        <dependency>
+            <groupId>io.springfox</groupId>
+            <artifactId>springfox-swagger2</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.springfox</groupId>
+            <artifactId>springfox-swagger-ui</artifactId>
+        </dependency>
+```
+2. Add _@EnableSwagger2_annotation of swagger in **BlogApplication** initialization class
+```java
+package com.js;
+
+import org.mybatis.spring.annotation.MapperScan;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
+import springfox.documentation.swagger2.annotations.EnableSwagger2;
+
+@SpringBootApplication
+@MapperScan("com.js.mapper")
+@EnableScheduling
+@EnableSwagger2
+public class BlogApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(BlogApplication.class,args);
+    }
+
+}
+```
+3. Run the application and test
+> http://localhost:7777/swagger-ui.html
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/5c7baafc-d695-4460-b56e-640d85d737d4)
+
+#### 17.2 Swagger2 - Controller config
+- Add _@Api_ annotation in **CommentController** to customize tag & description
+```java
+package com.js.controller;
+
+import com.js.constants.SystemConstants;
+import com.js.domain.ResponseResult;
+import com.js.domain.entity.Comment;
+import com.js.service.CommentService;
+import io.swagger.annotations.Api;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/comment")
+@Api(tags = "comment",description = "comment interface")
+public class CommentController {
+
+    @Autowired
+    private CommentService commentService;
+
+    @GetMapping("/commentList")
+    public ResponseResult commentList(Long articleId, Integer pageNum, Integer pageSize){
+        return commentService.commentList(SystemConstants.ARTICLE_COMMENT,articleId,pageNum,pageSize);
+    }
+
+    @PostMapping
+    public ResponseResult addComment(@RequestBody Comment comment){
+        return commentService.addComment(comment);
+    }
+
+    @GetMapping("/linkCommentList")
+    public ResponseResult linkCommentList(Integer pageNum, Integer pageSize){
+        return commentService.commentList(SystemConstants.LINK_COMMENT, null, pageNum, pageSize);
+    }
+}
+```
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/ec11a5c8-4665-4139-85d6-2927fb07d422)
+
+#### 17.3 Swagger2 - Interface config
+- Update **linkCommentList** function in **CommentController** using _@ApiOperation_ annotation
+```java
+    @GetMapping("/linkCommentList")
+    @ApiOperation(value = "friend link comment list", notes = "get one page of friend link comments ")
+    public ResponseResult linkCommentList(Integer pageNum, Integer pageSize){
+        return commentService.commentList(SystemConstants.LINK_COMMENT, null, pageNum, pageSize);
+    }
+```
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/a1664c88-fadb-41df-b269-d0213432b5fb)
+
+
+#### 17.4 Swagger2 - Interface parameter config
+- Update **linkCommentList** function in **CommentController** using _ @ApiImplicitParams_ annotation
+
+```java
+@GetMapping("/linkCommentList")
+    @ApiOperation(value = "friend link comment list", notes = "get one page of friend link comments ")
+    @ApiImplicitParams({
+            @ApiImplicitParam(name = "pageNum", value = "page number"),
+            @ApiImplicitParam(name = "pageSize", value = "page size")
+    })
+    public ResponseResult linkCommentList(Integer pageNum, Integer pageSize){
+        return commentService.commentList(SystemConstants.LINK_COMMENT, null, pageNum, pageSize);
+    }
+```
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/878a615c-366e-4521-b57d-79a4a21715f2)
+
+#### 17.5 Swagger2 - Entity config
+- Update **Comment** entity using _@ApiModel_ annotation 
+
+```java
+package com.js.domain.entity;
+
+
+import java.util.Date;
+
+import java.io.Serializable;
+
+import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.TableField;
+import io.swagger.annotations.ApiModel;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+
+
+@SuppressWarnings("serial")
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@TableName("comment")
+@ApiModel(description = "adding comment entity")
+public class Comment  {
+    
+@TableId
+    private Long id;
+
+    
+
+    private String type;
+    
+
+    private Long articleId;
+    
+
+    private Long rootId;
+    
+
+    private String content;
+    
+
+    private Long toCommentUserId;
+    
+
+    private Long toCommentId;
+    
+    @TableField(fill = FieldFill.INSERT)
+    private Long createBy;
+
+    @TableField(fill = FieldFill.INSERT)
+    private Date createTime;
+
+    @TableField(fill = FieldFill.INSERT_UPDATE)
+    private Long updateBy;
+
+    @TableField(fill = FieldFill.INSERT_UPDATE)
+    private Date updateTime;
+    
+
+    private Integer delFlag;
+    
+}
+```
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/444cd04f-9965-4f6e-af92-bb4ebf2233d0)
+
+- Problem of directly adding  _@ApiModel_ annotation in **Comment** entity class:
+  - In real developing senario, we can not use **Comment** entity class that is mapped with correspongding table in the database to receive response body from frontend;
+  - Instead, DTO entity is used to receive the response body that only has certain attributes
+ 
+- As a result, create **AddCommentDto** under **Shared/com/js/domain/dto**
+- Using _@ApiModel_ &  _@ApiModelProperty_ annotation
+
+```java
+package com.js.domain.dto;
+
+import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.TableField;
+import io.swagger.annotations.ApiModel;
+import io.swagger.annotations.ApiModelProperty;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.Date;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@ApiModel(description = "DTO entity for add comment")
+public class AddCommentDto {
+
+    private Long id;
+
+    @ApiModelProperty(notes = "0 - article comment, 1 - friend link comment")
+    private String type;
+    
+    @ApiModelProperty(notes = "articleId")
+    private Long articleId;
+
+    private Long rootId;
+
+    private String content;
+
+    @ApiModelProperty(notes = "the useId of the user creating the target comment")
+    private Long toCommentUserId;
+
+    @ApiModelProperty(notes = "the id of the target comment")
+    private Long toCommentId;
+
+    private Long createBy;
+
+    private Date createTime;
+
+    private Long updateBy;
+
+    private Date updateTime;
+    
+    @ApiModelProperty(notes = "0 - deleted, 1 - not deleted")
+    private Integer delFlag;
+}
+
+```
+
+- Update parameter of function **addComment** under **CommentController** since **AddCommentDto** we created is used here instead of **Comment**
+
+```java
+@PostMapping
+    public ResponseResult addComment(@RequestBody AddCommentDto commentDto){
+        Comment comment = BeanCopyUtil.copyBean(commentDto, Comment.class);
+        return commentService.addComment(comment);
+    }
+```
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/c2c79278-3b0b-4f3c-9137-02ae0ca34a57)
+
+#### 17.6 Swagger2 - Document info config
+- Create **SwaggerConfig** under **FrontStage/com/js/config**
+
+```java
+package com.js.config;
+
+import com.google.common.base.Predicates;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import springfox.documentation.builders.ApiInfoBuilder;
+import springfox.documentation.builders.PathSelectors;
+import springfox.documentation.builders.RequestHandlerSelectors;
+import springfox.documentation.service.ApiInfo;
+import springfox.documentation.service.Contact;
+import springfox.documentation.spi.DocumentationType;
+import springfox.documentation.spring.web.plugins.Docket;
+import springfox.documentation.swagger2.annotations.EnableSwagger2;
+
+@Configuration
+@EnableSwagger2
+public class SwaggerConfig {
+    @Bean
+    public Docket customDocket() {
+        return new Docket(DocumentationType.SWAGGER_2)
+                .apiInfo(apiInfo())
+                .select()
+
+                //only monitor api in com.js.controller
+                //.apis(RequestHandlerSelectors.basePackage("com.js.controller"))
+
+                // monitor all APIs
+                .apis(RequestHandlerSelectors.any())
+
+                //The incorrect interface address is not displayed, that is, the error path is not monitored
+                .paths(Predicates.not(PathSelectors.regex("/error.*")))
+
+                .build();
+    }
+
+    private ApiInfo apiInfo() {
+        Contact contact = new Contact("Shuai Jiang", "https://www.google.com/","849227667@qq.com");
+        return new ApiInfoBuilder()
+                .title("JS's BLOG")
+                .description("My first project")
+                .contact(contact)   // contact info
+                .version("1.1.0")  // version
+                .build();
+    }
+}
+```
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/f9837827-a4ed-490e-ad0e-49005e49442c)
+
+## 18 Blog BackStage
+
