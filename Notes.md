@@ -5584,5 +5584,410 @@ public class SwaggerConfig {
 ```
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/f9837827-a4ed-490e-ad0e-49005e49442c)
 
-## 18 Blog BackStage
+## 18 Blog BackStage - Preparation
 
+#### 18.1 Coding & Test
+1. Create initialization class under **com/js/** under BackStage module
+```java
+package com.js;
+
+import org.mybatis.spring.annotation.MapperScan;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+@MapperScan("com.js.mapper")
+//initialization class
+public class BlogAdminApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(BlogAdminApplication.class, args);
+    }
+}
+```
+2. Add **SecurityConfig** & **JwtAuthenticationTokenFilter** in BackStage module to pass security check
+   
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/ded89497-0def-49a4-a0f0-990ae3119a94)
+
+3. Create entity, service, serviceImpl, mapper and controller for **tag** table
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/82f066d3-dbc5-4fdd-b739-977e7d38e1df)
+
+- **_Tag_**
+```java
+package com.js.domain.entity;
+
+
+import java.util.Date;
+
+import java.io.Serializable;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+
+
+@SuppressWarnings("serial")
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@TableName("tag")
+public class Tag  {
+    
+    @TableId
+    private Long id;
+
+
+    private String name;
+    
+
+    private Long createBy;
+    
+
+    private Date createTime;
+    
+
+    private Long updateBy;
+    
+
+    private Date updateTime;
+    
+
+    private Integer delFlag;
+    
+
+    private String remark;
+    
+}
+```
+- **_TagMapper_**
+
+```java
+package com.js.mapper;
+
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.js.domain.entity.Tag;
+
+
+public interface TagMapper extends BaseMapper<Tag> {
+
+}
+```
+- **_TagService_**
+
+```java
+package com.js.service;
+
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.js.domain.entity.Tag;
+
+
+public interface TagService extends IService<Tag> {
+
+}
+```
+
+- **_TagServiceImpl_**
+```java
+package com.js.service.impl;
+
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.js.domain.entity.Tag;
+import com.js.mapper.TagMapper;
+import com.js.service.TagService;
+import org.springframework.stereotype.Service;
+
+
+@Service("tagService")
+public class TagServiceImpl extends ServiceImpl<TagMapper, Tag> implements TagService {
+
+}
+```
+- **_TagController_**
+```java
+package com.js.controller;
+
+import com.js.domain.ResponseResult;
+import com.js.service.TagService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/content/tag")
+public class TagController {
+
+    @Autowired
+    private TagService tagService;
+
+    @GetMapping("/list")
+    public ResponseResult list(){
+        return ResponseResult.okResult(tagService.list());
+    }
+}
+```
+4. Test
+
+>http://localhost:8989/content/tag/list
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/2606f1a4-749f-4de5-9f3d-79483a4f631e)
+
+**Connection SUCCESS**
+		
+#### 18.2 Frontend admin system prep
+1. Download 'sg-vue-admin.zip' source code file
+```text
+https://cowtransfer.com/s/341b8ba1d01d48
+```
+
+2. Run the project
+```text
+> d:
+> cd/BlogWeb/js-admin-vue
+> npm install
+> npm run dev
+```
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/0c70dff3-d2b4-4b69-bbb5-f3377c243e17)
+
+3. Visit web page of admin frontend system
+
+```text
+http://localhost:81/
+```
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/d1ecb441-820c-43e5-8d80-dade728192de)
+
+## 19. Blog BackStage - Login 
+
+The login function of Backstage is relatively the same as the Frontstage, so the shared portion of code will be directly transferred from Frontstage.
+
+### _AdminLoginService_
+
+```java
+package com.js.service;
+
+import com.js.domain.ResponseResult;
+import com.js.domain.entity.User;
+
+public interface AdminLoginService {
+
+    //login
+    ResponseResult login(User user);
+
+}
+```
+### _AdminLoginServiceImpl_
+
+```java
+package com.js.service.impl;
+
+import com.js.Utils.JwtUtil;
+import com.js.Utils.RedisCache;
+import com.js.domain.ResponseResult;
+import com.js.domain.entity.LoginUser;
+import com.js.domain.entity.User;
+import com.js.service.AdminLoginService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
+
+@Service
+public class AdminLoginServiceImpl implements AdminLoginService {
+    @Autowired
+    private AuthenticationManager authenticationManager;
+
+    @Autowired
+    private RedisCache redisCache;
+
+    @Override
+    public ResponseResult login(User user) {
+
+        UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(user.getUserName(),user.getPassword());
+        Authentication authenticate = authenticationManager.authenticate(authenticationToken);
+
+        //check if certification passed
+        if(Objects.isNull(authenticate)){
+            throw new RuntimeException("Username or password incorrect!");
+        }
+
+        //get userId, generate token with userId
+        LoginUser loginUser = (LoginUser) authenticate.getPrincipal();
+        String userId = loginUser.getUser().getId().toString(); // cast Long to String
+        String jwt = JwtUtil.createJWT(userId);
+
+        //store userInfo into redis
+        redisCache.setCacheObject("adminLogin:"+userId, loginUser   );
+
+        //encapsulate token and return
+        Map<String,String> map = new HashMap<>();
+        map.put("token",jwt);
+        return ResponseResult.okResult(map);
+
+    }
+
+//    @Override
+//    public ResponseResult logout() {
+//        //get token to parse userId
+//        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+//        LoginUser loginUser = (LoginUser) authentication.getPrincipal();
+//
+//        //get userId from token
+//        Long userId = loginUser.getUser().getId();
+//
+//        //delete user info from redis
+//        redisCache.deleteObject("bloglogin:"+userId);
+//        return ResponseResult.okResult();
+//    }
+}
+```
+### _AdminLoginController_
+```java
+package com.js.controller;
+
+import com.js.domain.ResponseResult;
+import com.js.domain.entity.User;
+import com.js.enums.AppHttpCodeEnum;
+import com.js.exception.SystemException;
+import com.js.service.AdminLoginService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+public class AdminLoginController {
+
+    @Autowired
+    private AdminLoginService adminLoginService;
+
+    @PostMapping("/user/login")
+    public ResponseResult login(@RequestBody User user){
+
+        //if username is null, then throw exception that username is required
+        if(!StringUtils.hasText(user.getUserName())){
+            throw new SystemException(AppHttpCodeEnum.REQUIRE_USERNAME);
+        }
+        return adminLoginService.login(user);
+
+    }
+
+//    @PostMapping("/logout")
+//    public ResponseResult logout(){
+//        return blogLoginService.logout();
+//    }
+
+}
+```
+### _SecurityConfig_
+```java
+package com.js.config;
+
+import com.js.filter.JwtAuthenticationTokenFilter;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.AuthenticationEntryPoint;
+import org.springframework.security.web.access.AccessDeniedHandler;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+@Configuration
+public class SecurityConfig extends WebSecurityConfigurerAdapter {
+
+    @Override
+    @Bean
+    public AuthenticationManager authenticationManagerBean() throws Exception {
+        return super.authenticationManagerBean();
+    }
+
+    @Autowired
+    AuthenticationEntryPoint authenticationEntryPoint;
+
+    @Autowired
+    AccessDeniedHandler accessDeniedHandler;
+
+    @Autowired
+    private JwtAuthenticationTokenFilter jwtAuthenticationTokenFilter;
+
+    @Bean
+    public PasswordEncoder passwordEncoder(){
+        return new BCryptPasswordEncoder();
+    }
+
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        http
+                //close csrf
+                .csrf().disable()
+                //not through Session to get SecurityContext
+                .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                .and()
+                .authorizeRequests()
+                // for login interface, allow anonymous visit
+                .antMatchers("/user/login").anonymous()
+//                .antMatchers("/logout").authenticated()
+//                .antMatchers("/user/userInfo").authenticated()
+                //.antMatchers("/upload").authenticated()
+                //.antMatchers("/content/tag/list").authenticated()
+                // apart from above requests, no need of authentication
+                .anyRequest().authenticated();
+
+        //config exception handler into security
+        http.exceptionHandling()
+                .authenticationEntryPoint(authenticationEntryPoint)
+                .accessDeniedHandler(accessDeniedHandler);
+
+        http.logout().disable();
+
+        //first argument is the filter I want to add, second is the filter that is after the filter I added
+        http.addFilterBefore(jwtAuthenticationTokenFilter, UsernamePasswordAuthenticationFilter.class);
+
+        //allow cors
+        http.cors();
+    }
+}
+```
+
+### Test
+- admin Vue
+
+```text
+> d:
+> cd/BlogWeb/js-admin-vue
+> npm run dev
+```
+- redis
+
+```text
+> d:
+> cd/redis
+> redis-server.exe redis.windows.conf
+```
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/c3c04100-fef5-46f9-9374-3a62f8791516)
+
+## 20. Blog BackStage - Authority control
+
+## 21. Blog BackStage - 
+
+## 22. Blog BackStage - 
+
+## 23. Blog BackStage - 
+
+## 24. Blog BackStage - 
