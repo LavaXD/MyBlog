@@ -5984,7 +5984,161 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
 ## 20. Blog BackStage - Authority control
 
+#### 20.1 Interface design
+
+- Menu table
+  
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/efedc239-8b9f-4ba7-9766-113c052d6cf8)
+
+- User can only visit certain functions that is allowed for this user's authority level
+- RBAC authority model in SpringSecurity is used here to realize authority control
+<table>
+	<tr>
+		<td>Request Method</td>
+		<td>Request Path</td>
+		<td>Request Head</td>
+	</tr>
+	<tr>
+		<td>GET</td>
+		<td>/getInfo</td>
+		<td>token needed</td>
+	</tr>
+</table>
+
+Response format: if userId is 1 indicating 'admin' role, then 'roles' field only have admin, 'permission field need to have authorities whose types are 'C' (Menu) or 'F' (Button).
+```json
+{
+	"code":200,
+	"data":{
+		"permissions":[
+			"system:user:list",
+            		"system:role:list",
+			"system:menu:list",
+			"system:user:query",
+			"system:user:add"
+            		//.......
+		],
+		"roles":[
+			"admin"
+		],
+		"user":{
+			"avatar":"http://r7yxkqloa.bkt.clouddn.com/2022/03/05/75fd15587811443a9a9a771f24da458d.png",
+			"email":"23412332@qq.com",
+			"id":1,
+			"nickName":"sg3334",
+			"sex":"1"
+		}
+	},
+	"msg":"operation success"
+}
+```
+
+
 ## 21. Blog BackStage - 
+
+#### 21.1 Interface design
+- Users with different authorities should see different menus on side bar
+  
+<table>
+	<tr>
+		<td>Request Method</td>
+		<td>Request Path</td>
+		<td>Request Head</td>
+	</tr>
+	<tr>
+		<td>GET</td>
+		<td>/getInfo</td>
+		<td>token needed</td>
+	</tr>
+</table>
+
+- If userId is 1, then 'menus' field should contain all menus whose menu type is 'M' (table of contents) or 'C' (menu)
+Response format
+```json
+{
+	"code":200,
+	"data":{
+		"menus":[
+			{
+				"children":[],
+				"component":"content/article/write/index",
+				"createTime":"2022-01-08 11:39:58",
+				"icon":"build",
+				"id":2023,
+				"menuName":"写博文",
+				"menuType":"C",
+				"orderNum":"0",
+				"parentId":0,
+				"path":"write",
+				"perms":"content:article:writer",
+				"status":"0",
+				"visible":"0"
+			},
+			{
+				"children":[
+					{
+						"children":[],
+						"component":"system/user/index",
+						"createTime":"2021-11-12 18:46:19",
+						"icon":"user",
+						"id":100,
+						"menuName":"用户管理",
+						"menuType":"C",
+						"orderNum":"1",
+						"parentId":1,
+						"path":"user",
+						"perms":"system:user:list",
+						"status":"0",
+						"visible":"0"
+					},
+					{
+						"children":[],
+						"component":"system/role/index",
+						"createTime":"2021-11-12 18:46:19",
+						"icon":"peoples",
+						"id":101,
+						"menuName":"角色管理",
+						"menuType":"C",
+						"orderNum":"2",
+						"parentId":1,
+						"path":"role",
+						"perms":"system:role:list",
+						"status":"0",
+						"visible":"0"
+					},
+					{
+						"children":[],
+						"component":"system/menu/index",
+						"createTime":"2021-11-12 18:46:19",
+						"icon":"tree-table",
+						"id":102,
+						"menuName":"菜单管理",
+						"menuType":"C",
+						"orderNum":"3",
+						"parentId":1,
+						"path":"menu",
+						"perms":"system:menu:list",
+						"status":"0",
+						"visible":"0"
+					}
+				],
+				"createTime":"2021-11-12 18:46:19",
+				"icon":"system",
+				"id":1,
+				"menuName":"系统管理",
+				"menuType":"M",
+				"orderNum":"1",
+				"parentId":0,
+				"path":"system",
+				"perms":"",
+				"status":"0",
+				"visible":"0"
+			}
+		]
+	},
+	"msg":"operation success"
+}
+```
 
 ## 22. Blog BackStage - 
 
