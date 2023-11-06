@@ -6032,9 +6032,417 @@ Response format: if userId is 1 indicating 'admin' role, then 'roles' field only
 	"msg":"operation success"
 }
 ```
+#### 20.2 Coding
+1. Create **AdminUserInfoVo** that is consistent with response format
+
+```java
+package com.js.domain.vo;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.experimental.Accessors;
+
+import java.util.List;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@Accessors(chain = true)
+public class AdminUserInfoVo {
+
+    private List<String> permissions;
+
+    private List<String> roles;
+
+    private UserInfoVo user;
+}
+```
+
+2. Use **EasyCode** to generate entity, service, serviceImpl, mapper for **menu** table
+
+**Menu**
+```java
+package com.js.domain.entity;
 
 
-## 21. Blog BackStage - 
+import java.util.Date;
+
+import java.io.Serializable;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+
+
+@SuppressWarnings("serial")
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@TableName("sys_menu")
+public class Menu  {
+    
+@TableId
+    private Long id;
+
+
+    private String menuName;
+    
+
+    private Long parentId;
+    
+
+    private Integer orderNum;
+    
+
+    private String path;
+    
+
+    private String component;
+    
+
+    private Integer isFrame;
+    
+
+    private String menuType;
+    
+
+    private String visible;
+    
+
+    private String status;
+    
+
+    private String perms;
+    
+
+    private String icon;
+    
+
+    private Long createBy;
+    
+
+    private Date createTime;
+    
+
+    private Long updateBy;
+    
+
+    private Date updateTime;
+    
+
+    private String remark;
+    
+
+    private String delFlag;
+    
+}
+```
+**MenuService**
+```java
+package com.js.service;
+
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.js.domain.ResponseResult;
+import com.js.domain.entity.Menu;
+
+import java.util.List;
+
+
+public interface MenuService extends IService<Menu> {
+
+    List<String> selectPermsByUserId(Long id);
+}
+```
+**MenuServiceImpl**
+```java
+package com.js.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.js.constants.SystemConstants;
+import com.js.domain.ResponseResult;
+import com.js.domain.entity.Menu;
+import com.js.mapper.MenuMapper;
+import com.js.service.MenuService;
+import lombok.experimental.Accessors;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+
+@Service("menuService")
+public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements MenuService {
+
+    @Override
+    public List<String> selectPermsByUserId(Long id) { //inquire permission by userId
+
+        LambdaQueryWrapper<Menu> queryWrapper = new LambdaQueryWrapper<>();
+        //if it's 'admin', return all authority (menuType = 'F' or 'C'; status is normal, not deleted)
+        if(id == 1L){
+            queryWrapper
+                    .in(Menu::getMenuType, SystemConstants.MENU,SystemConstants.BUTTON)
+                    .eq(Menu::getStatus, SystemConstants.STATUS_NORMAL);
+            List<Menu> menus = list(queryWrapper);
+
+            //since the list we get above is a list of Menu, so convert it into a list of String
+            List<String> perms = menus.stream()
+                    .map(Menu::getPerms)
+                    .collect(Collectors.toList());
+
+            return perms;
+        }
+
+        //else, return corresponding authority
+        return getBaseMapper().selectPermsById(id);
+    }
+}
+```
+**MenuMapper.xml** under Shared/com/js/resources/mapper
+```xml
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.js.mapper.MenuMapper">
+    <!-- inquire normal user's authority -->
+    <select id="selectPermsById" resultType="java.lang.String">
+        select
+            distinct m.perms
+        from
+            sys_user_role ur
+                left join sys_role_menu rm on ur.role_id = rm.role_id
+                left join sys_menu m on m.id = rm.menu_id
+        where
+            ur.user_id = #{userId} and
+            m.menu_type in ('F','C') and
+            m.status = 0 and
+            m.del_flag = 0
+    </select>
+</mapper>
+```
+
+3. Use **EasyCode** to generate entity, service, serviceImpl, mapper for **role** table
+
+**Role**
+```java
+package com.js.domain.entity;
+
+
+import java.util.Date;
+
+import java.io.Serializable;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+
+
+@SuppressWarnings("serial")
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@TableName("sys_role")
+public class Role  {
+    
+    @TableId
+    private Long id;
+    
+
+    private String roleName;
+    
+
+    private String roleKey;
+    
+
+    private Integer roleSort;
+    
+
+    private String status;
+    
+
+    private String delFlag;
+    
+
+    private Long createBy;
+    
+
+    private Date createTime;
+    
+
+    private Long updateBy;
+    
+
+    private Date updateTime;
+    
+
+    private String remark;
+    
+}
+```
+**RoleService**
+```java
+package com.js.service;
+
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.js.domain.entity.Role;
+
+import java.util.List;
+
+
+public interface RoleService extends IService<Role> {
+
+    List<String> selectRoleKeyByUserId(Long id);
+}
+```
+
+**RoleServiceImpl**
+```java
+package com.js.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.js.domain.entity.Role;
+import com.js.mapper.RoleMapper;
+import com.js.service.RoleService;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.List;
+
+
+@Service("roleService")
+public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role> implements RoleService {
+
+    @Override
+    public List<String> selectRoleKeyByUserId(Long id) {
+
+        List<String> roleKey = new ArrayList<>();
+        //check if it's admin, if yes, role list only have 'admin'
+        if(id == 1){
+            roleKey.add("admin");
+            return roleKey;
+        }
+
+        //else, return corresponding role info
+        return getBaseMapper().selectRoleKeyById(id);
+    }
+}
+```
+
+**RoleMapper.xml** under Shared/com/js/resources/mapper
+```xml
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.js.mapper.RoleMapper">
+
+    <!--  get normal user's role  -->
+    <select id="selectRoleKeyById" resultType="java.lang.String">
+        select
+            distinct role_key
+        from
+            sys_user_role ur
+            left join sys_role r on ur.role_id = r.id
+        where
+            ur.user_id = #{userId} and
+            r.status = 0 and
+            r.del_flag = 0
+    </select>
+</mapper>
+```
+4. Update **AdminLoginController**
+
+```java
+package com.js.controller;
+
+import com.js.Utils.BeanCopyUtil;
+import com.js.Utils.SecurityUtil;
+import com.js.domain.ResponseResult;
+import com.js.domain.entity.LoginUser;
+import com.js.domain.entity.User;
+import com.js.domain.vo.AdminUserInfoVo;
+import com.js.domain.vo.UserInfoVo;
+import com.js.enums.AppHttpCodeEnum;
+import com.js.exception.SystemException;
+import com.js.service.AdminLoginService;
+import com.js.service.MenuService;
+import com.js.service.RoleService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+
+@RestController
+public class AdminLoginController {
+
+    @Autowired
+    private AdminLoginService adminLoginService;
+
+    @Autowired
+    private MenuService menuService;
+
+    @Autowired
+    private RoleService roleService;
+
+    @PostMapping("/user/login")
+    public ResponseResult login(@RequestBody User user){
+
+        //if username is null, then throw exception that username is required
+        if(!StringUtils.hasText(user.getUserName())){
+            throw new SystemException(AppHttpCodeEnum.REQUIRE_USERNAME);
+        }
+        return adminLoginService.login(user);
+
+    }
+
+    @GetMapping("/getInfo")
+    public ResponseResult<AdminUserInfoVo> getInfo(){
+
+        //get current login user
+        LoginUser loginUser = SecurityUtil.getLoginUser();
+
+        //inquire authority by userId
+        List<String> perms = menuService.selectPermsByUserId(loginUser.getUser().getId());
+
+        //inquire role by userId
+        List<String> roles = roleService.selectRoleKeyByUserId(loginUser.getUser().getId());
+
+        //copy bean of user to UserInfoVo
+        UserInfoVo userInfoVo = BeanCopyUtil.copyBean(loginUser.getUser(), UserInfoVo.class);
+
+        //encapsulate and return
+        AdminUserInfoVo adminUserInfoVo = new AdminUserInfoVo(perms,roles,userInfoVo);
+        return ResponseResult.okResult(adminUserInfoVo);
+    }
+}
+```
+5. Test
+
+- admin Vue
+
+```text
+> d:
+> cd/BlogWeb/js-admin-vue
+> npm run dev
+```
+- redis
+
+```text
+> d:
+> cd/redis
+> redis-server.exe redis.windows.conf
+```
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/0020695e-d415-4e16-aacc-eb8602564cb2)
+
+## 21. Blog BackStage - Dynamic Routing 
 
 #### 21.1 Interface design
 - Users with different authorities should see different menus on side bar
@@ -6047,7 +6455,7 @@ Response format: if userId is 1 indicating 'admin' role, then 'roles' field only
 	</tr>
 	<tr>
 		<td>GET</td>
-		<td>/getInfo</td>
+		<td>/getRouters</td>
 		<td>token needed</td>
 	</tr>
 </table>
@@ -6140,8 +6548,260 @@ Response format
 }
 ```
 
-## 22. Blog BackStage - 
+#### 21.2 Coding 
 
-## 23. Blog BackStage - 
+#### 21.3 Test
+- admin Vue
+
+```text
+> d:
+> cd/BlogWeb/js-admin-vue
+> npm run dev
+```
+- redis
+
+```text
+> d:
+> cd/redis
+> redis-server.exe redis.windows.conf
+```
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/eb2e57d7-b88c-4c29-b3ea-628d9634e6b6)
+
+## 22. Blog BackStage - Logout
+
+#### 22.1 Interface Design
+
+<table>
+	<tr>
+		<td>Request Method</td>
+		<td>Request Path</td>
+		<td>Request Head</td>
+	</tr>
+	<tr>
+		<td>POST</td>
+		<td>/user/logOut</td>
+		<td>token needed</td>
+	</tr>
+</table>
+
+Response format
+```json
+{
+    "code": 200,
+    "msg": "operation success"
+}
+```
+
+#### 22.2 Coding
+Logout function is also similar to the frontstage 
+
+1. Update **AdminLoginService**
+```java
+package com.js.service;
+
+import com.js.domain.ResponseResult;
+import com.js.domain.entity.User;
+
+public interface AdminLoginService {
+
+    //login
+    ResponseResult login(User user);
+
+    //logout
+    ResponseResult logOut();
+}
+```
+2. Update **AdminLoginServiceImpl**
+```java
+package com.js.service.impl;
+
+import com.js.Utils.JwtUtil;
+import com.js.Utils.RedisCache;
+import com.js.Utils.SecurityUtil;
+import com.js.domain.ResponseResult;
+import com.js.domain.entity.LoginUser;
+import com.js.domain.entity.User;
+import com.js.service.AdminLoginService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.stereotype.Service;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
+
+@Service
+public class AdminLoginServiceImpl implements AdminLoginService {
+    @Autowired
+    private AuthenticationManager authenticationManager;
+
+    @Autowired
+    private RedisCache redisCache;
+
+    @Override
+    public ResponseResult login(User user) {
+
+        UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(user.getUserName(),user.getPassword());
+        Authentication authenticate = authenticationManager.authenticate(authenticationToken);
+
+        //check if certification passed
+        if(Objects.isNull(authenticate)){
+            throw new RuntimeException("Username or password incorrect!");
+        }
+
+        //get userId, generate token with userId
+        LoginUser loginUser = (LoginUser) authenticate.getPrincipal();
+        String userId = loginUser.getUser().getId().toString(); // cast Long to String
+        String jwt = JwtUtil.createJWT(userId);
+
+        //store userInfo into redis
+        redisCache.setCacheObject("adminLogin:"+userId, loginUser   );
+
+        //encapsulate token and return
+        Map<String,String> map = new HashMap<>();
+        map.put("token",jwt);
+        return ResponseResult.okResult(map);
+
+    }
+
+    @Override
+    public ResponseResult logOut() {
+
+        //get current userId
+        Long userId = SecurityUtil.getUserId();
+
+        //delete user token in redis
+        redisCache.deleteObject("adminLogin:"+userId);
+
+        return ResponseResult.okResult();
+    }
+
+}
+```
+
+3. Update **AdminLoginController** 
+
+```java
+package com.js.controller;
+
+import com.js.Utils.BeanCopyUtil;
+import com.js.Utils.RedisCache;
+import com.js.Utils.SecurityUtil;
+import com.js.domain.ResponseResult;
+import com.js.domain.entity.LoginUser;
+import com.js.domain.entity.Menu;
+import com.js.domain.entity.User;
+import com.js.domain.vo.AdminUserInfoVo;
+import com.js.domain.vo.RoutersVo;
+import com.js.domain.vo.UserInfoVo;
+import com.js.enums.AppHttpCodeEnum;
+import com.js.exception.SystemException;
+import com.js.service.AdminLoginService;
+import com.js.service.MenuService;
+import com.js.service.RoleService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.cache.CacheProperties;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+
+@RestController
+public class AdminLoginController {
+
+    @Autowired
+    private AdminLoginService adminLoginService;
+
+    @Autowired
+    private MenuService menuService;
+
+    @Autowired
+    private RoleService roleService;
+
+    @Autowired
+    private RedisCache redisCache;
+
+    //-------------------------------------- login -------------------------------------------
+    @PostMapping("/user/login")
+    public ResponseResult login(@RequestBody User user){
+
+        //if username is null, then throw exception that username is required
+        if(!StringUtils.hasText(user.getUserName())){
+            throw new SystemException(AppHttpCodeEnum.REQUIRE_USERNAME);
+        }
+        return adminLoginService.login(user);
+    }
+
+    //-------------------------------------- logout -------------------------------------------
+    @PostMapping("/user/logout")
+    public ResponseResult logout(){
+
+        return adminLoginService.logOut();
+    }
+
+    //-------------------------------------- getInfo -------------------------------------------
+    @GetMapping("/getInfo")
+    public ResponseResult<AdminUserInfoVo> getInfo(){
+
+        //get current login user
+        LoginUser loginUser = SecurityUtil.getLoginUser();
+
+        //inquire authority by userId
+        List<String> perms = menuService.selectPermsByUserId(loginUser.getUser().getId());
+
+        //inquire role by userId
+        List<String> roles = roleService.selectRoleKeyByUserId(loginUser.getUser().getId());
+
+        //copy bean of user to UserInfoVo
+        UserInfoVo userInfoVo = BeanCopyUtil.copyBean(loginUser.getUser(), UserInfoVo.class);
+
+        //encapsulate and return
+        AdminUserInfoVo adminUserInfoVo = new AdminUserInfoVo(perms,roles,userInfoVo);
+        return ResponseResult.okResult(adminUserInfoVo);
+    }
+
+    //-------------------------------------- getRouters -------------------------------------------
+    @GetMapping("/getRouters")
+    public ResponseResult<RoutersVo> getRouters(){
+
+        //inquire menu, result should be in form of tree (hierarchy)
+        Long userId = SecurityUtil.getUserId();
+        List<Menu> menus = menuService.selectRouterMenuTreeById(userId);
+
+        //encap and return
+        return ResponseResult.okResult(new RoutersVo(menus));
+    }
+
+}
+```
+#### 22.3 Test
+
+- admin Vue
+
+```text
+> d:
+> cd/BlogWeb/js-admin-vue
+> npm run dev
+```
+- redis
+
+```text
+> d:
+> cd/redis
+> redis-server.exe redis.windows.conf
+```
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/b873dae4-d4e5-4205-a6f2-d1e4e5e30df4)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/3aaefbda-65a1-4274-9900-9d858889d762)
+
+
+## 23. Blog BackStage - Query tag list
 
 ## 24. Blog BackStage - 
