@@ -6802,6 +6802,802 @@ public class AdminLoginController {
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/3aaefbda-65a1-4274-9900-9d858889d762)
 
 
-## 23. Blog BackStage - Query tag list
+## 23. Blog BackStage - Article Tag
+### 23.1 Query tag list
+#### 23.1.1 Interface design 
+In order to facilitate the later management of the article, an article can have multiple tags. In the backstage, the function of paging query tag is required, and the corresponding article can be paging query according to the tag name
+<table>
+	<tr>
+		<td>Request Method</td>
+		<td>Request Path</td>
+		<td>Request Head</td>
+	</tr>
+	<tr>
+		<td>GET</td>
+		<td>/content/tag/list</td>
+		<td>token needed</td>
+	</tr>
+</table>
+
+Request parameter 
+```text
+pageNum, pageSize, name, remark
+```
+Response format
+```json
+{
+	"code":200,
+	"data":{
+		"rows":[
+			{
+				"id":4,
+				"name":"Java",
+				"remark":"sdad"
+			}
+		],
+		"total":1
+	},
+	"msg":"operation success"
+}
+```
+#### 23.1.2 Coding
+1. Update **TagController**
+```java
+package com.js.controller;
+
+import com.js.domain.ResponseResult;
+import com.js.domain.dto.TagListDto;
+import com.js.domain.vo.PageVo;
+import com.js.service.TagService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/content/tag")
+public class TagController {
+
+    @Autowired
+    private TagService tagService;
+
+    @GetMapping("/list")
+    public ResponseResult<PageVo> list(Integer pageNum, Integer pageSize, TagListDto tagListDto){
+
+        return tagService.pageTagList(pageNum,pageSize,tagListDto);
+    }
+}
+```
+2. Update **TagService**
+```java
+package com.js.service;
+
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.js.domain.ResponseResult;
+import com.js.domain.dto.TagListDto;
+import com.js.domain.entity.Tag;
+import com.js.domain.vo.PageVo;
+
+
+public interface TagService extends IService<Tag> {
+
+    ResponseResult<PageVo> pageTagList(Integer pageNum, Integer pageSize, TagListDto tagListDto);
+}
+```
+3. Update **TagServiceImpl**
+```java
+package com.js.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.js.domain.ResponseResult;
+import com.js.domain.dto.TagListDto;
+import com.js.domain.entity.Tag;
+import com.js.domain.vo.PageVo;
+import com.js.mapper.TagMapper;
+import com.js.service.TagService;
+import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+
+
+@Service("tagService")
+public class TagServiceImpl extends ServiceImpl<TagMapper, Tag> implements TagService {
+
+    @Override
+    public ResponseResult<PageVo> pageTagList(Integer pageNum, Integer pageSize, TagListDto tagListDto) {
+
+        //paging query
+        LambdaQueryWrapper<Tag> queryWrapper = new LambdaQueryWrapper<>();
+        //if tagListDto's name has value, then execute query, if name does not have value, it will not execute eq
+        queryWrapper.eq(StringUtils.hasText(tagListDto.getName()),Tag::getName, tagListDto.getName());
+        queryWrapper.eq(StringUtils.hasText(tagListDto.getRemark()),Tag::getRemark, tagListDto.getRemark());
+
+        Page<Tag> page = new Page<>();
+        page.setCurrent(pageNum);
+        page.setSize(pageSize);
+        page(page, queryWrapper);
+
+        //encap and return
+        PageVo pageVo = new PageVo(page.getRecords(),page.getTotal());
+
+        return ResponseResult.okResult(pageVo);
+    }
+}
+```
+4. Create **TagListDto**
+```java
+package com.js.domain.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class TagListDto {
+
+    private String name;
+
+    private String remark;
+}
+```
+
+#### 23.1.3 Test
+- admin Vue
+
+```text
+> d:
+> cd/BlogWeb/js-admin-vue
+> npm run dev
+```
+- redis
+
+```text
+> d:
+> cd/redis
+> redis-server.exe redis.windows.conf
+```
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/f3b79897-3758-4d5c-b274-d9b959662c84)
+
+
+### 23.2 Add tag 
+
+#### 23.2.1 Interface design
+<table>
+	<tr>
+		<td>Request Method</td>
+		<td>Request Path</td>
+		<td>Request Head</td>
+	</tr>
+	<tr>
+		<td>GET</td>
+		<td>/content/tag/list</td>
+		<td>token needed</td>
+	</tr>
+</table>
+
+Response body
+```text
+{"name":"tagName","remark":"tag's remark"}
+```
+Response format
+```json
+{
+	"code":200,
+	"msg":"operation success"
+}
+```
+
+#### 23.2.2 Coding
+
+1. Update **TagController**
+```java
+package com.js.controller;
+
+import com.js.Utils.BeanCopyUtil;
+import com.js.domain.ResponseResult;
+import com.js.domain.dto.TagListDto;
+import com.js.domain.entity.Tag;
+import com.js.domain.vo.PageVo;
+import com.js.service.TagService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/content/tag")
+public class TagController {
+
+    @Autowired
+    private TagService tagService;
+
+    @GetMapping("/list")
+    public ResponseResult<PageVo> list(Integer pageNum, Integer pageSize, TagListDto tagListDto){
+
+        return tagService.pageTagList(pageNum,pageSize,tagListDto);
+    }
+
+    @PostMapping
+    public ResponseResult addTag(@RequestBody TagListDto tagListDto){
+        Tag tag = BeanCopyUtil.copyBean(tagListDto, Tag.class);
+        return tagService.addTag(tag);
+    }
+}
+```
+2. Update **TagService**
+```java
+package com.js.service;
+
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.js.domain.ResponseResult;
+import com.js.domain.dto.TagListDto;
+import com.js.domain.entity.Tag;
+import com.js.domain.vo.PageVo;
+
+
+public interface TagService extends IService<Tag> {
+
+    ResponseResult<PageVo> pageTagList(Integer pageNum, Integer pageSize, TagListDto tagListDto);
+
+    ResponseResult addTag(Tag tag);
+}
+```
+3. Update **TagServiceImpl**
+```java
+package com.js.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.js.domain.ResponseResult;
+import com.js.domain.dto.TagListDto;
+import com.js.domain.entity.Tag;
+import com.js.domain.vo.PageVo;
+import com.js.enums.AppHttpCodeEnum;
+import com.js.exception.SystemException;
+import com.js.mapper.TagMapper;
+import com.js.service.TagService;
+import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+
+
+@Service("tagService")
+public class TagServiceImpl extends ServiceImpl<TagMapper, Tag> implements TagService {
+
+    //----------------------------------------------- Query tag list -----------------------------------------
+    @Override
+    public ResponseResult<PageVo> pageTagList(Integer pageNum, Integer pageSize, TagListDto tagListDto) {
+
+        //paging query
+        LambdaQueryWrapper<Tag> queryWrapper = new LambdaQueryWrapper<>();
+        //if tagListDto's name has value, then execute query, if name does not have value, it will not execute eq
+        queryWrapper.eq(StringUtils.hasText(tagListDto.getName()),Tag::getName, tagListDto.getName());
+        queryWrapper.eq(StringUtils.hasText(tagListDto.getRemark()),Tag::getRemark, tagListDto.getRemark());
+
+        Page<Tag> page = new Page<>();
+        page.setCurrent(pageNum);
+        page.setSize(pageSize);
+        page(page, queryWrapper);
+
+        //encap and return
+        PageVo pageVo = new PageVo(page.getRecords(),page.getTotal());
+
+        return ResponseResult.okResult(pageVo);
+    }
+
+    //----------------------------------------------- Add tag -----------------------------------------
+    @Override
+    public ResponseResult addTag(Tag tag) {
+        // check if tag name is no null
+        if(!StringUtils.hasText(tag.getName())){
+            throw new SystemException(AppHttpCodeEnum.CONTENT_NOT_NULL);
+        }
+        save(tag);
+        return ResponseResult.okResult();
+    }
+}
+```
+
+#### 23.2.3 Test
+
+- admin Vue
+
+```text
+> d:
+> cd/BlogWeb/js-admin-vue
+> npm run dev
+```
+- redis
+
+```text
+> d:
+> cd/redis
+> redis-server.exe redis.windows.conf
+```
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/acec8a10-2d2d-4773-8448-20b86ba509b2)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/6d99e41a-bd00-4c40-87cc-0241aa77d2ba)
+
+### 23.3 Delete tag 
+
+#### 23.3.1 Interface design
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/dff098e6-e424-4d7c-afec-352d12bf8f04)
+
+The request parameter is in the request path
+<table>
+	<tr>
+		<td>Request Method</td>
+		<td>Request Path</td>
+		<td>Request Head</td>
+	</tr>
+	<tr>
+		<td>DELETE</td>
+		<td>/content/tag/{id}</td>
+		<td>token needed</td>
+	</tr>
+</table>
+
+Response format
+```json
+{
+	"code":200,
+	"msg":"operation success"
+}
+```
+
+#### 23.3.2 Coding
+1. Update **TagController**
+```java
+package com.js.controller;
+
+import com.js.Utils.BeanCopyUtil;
+import com.js.domain.ResponseResult;
+import com.js.domain.dto.TagListDto;
+import com.js.domain.entity.Tag;
+import com.js.domain.vo.PageVo;
+import com.js.service.TagService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/content/tag")
+public class TagController {
+
+    @Autowired
+    private TagService tagService;
+
+    @GetMapping("/list")
+    public ResponseResult<PageVo> list(Integer pageNum, Integer pageSize, TagListDto tagListDto){
+
+        return tagService.pageTagList(pageNum,pageSize,tagListDto);
+    }
+
+    @PostMapping
+    public ResponseResult addTag(@RequestBody TagListDto tagListDto){
+        Tag tag = BeanCopyUtil.copyBean(tagListDto, Tag.class);
+        return tagService.addTag(tag);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseResult deleteTag(@PathVariable Long id){
+        return tagService.deleteTag(id);
+    }
+
+}
+```
+2. Update **TagService**
+```java
+package com.js.service;
+
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.js.domain.ResponseResult;
+import com.js.domain.dto.TagListDto;
+import com.js.domain.entity.Tag;
+import com.js.domain.vo.PageVo;
+
+
+public interface TagService extends IService<Tag> {
+
+    ResponseResult<PageVo> pageTagList(Integer pageNum, Integer pageSize, TagListDto tagListDto);
+
+    ResponseResult addTag(Tag tag);
+
+    ResponseResult deleteTag(Long id);
+}
+```
+3. Update **TagServiceImpl**
+```java
+package com.js.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.js.constants.SystemConstants;
+import com.js.domain.ResponseResult;
+import com.js.domain.dto.TagListDto;
+import com.js.domain.entity.Tag;
+import com.js.domain.vo.PageVo;
+import com.js.enums.AppHttpCodeEnum;
+import com.js.exception.SystemException;
+import com.js.mapper.TagMapper;
+import com.js.service.TagService;
+import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+
+
+@Service("tagService")
+public class TagServiceImpl extends ServiceImpl<TagMapper, Tag> implements TagService {
+
+    //----------------------------------------------- Query tag list -----------------------------------------
+    @Override
+    public ResponseResult<PageVo> pageTagList(Integer pageNum, Integer pageSize, TagListDto tagListDto) {
+
+        //paging query
+        LambdaQueryWrapper<Tag> queryWrapper = new LambdaQueryWrapper<>();
+        //if tagListDto's name has value, then execute query, if name does not have value, it will not execute eq
+        queryWrapper.eq(StringUtils.hasText(tagListDto.getName()),Tag::getName, tagListDto.getName());
+        queryWrapper.eq(StringUtils.hasText(tagListDto.getRemark()),Tag::getRemark, tagListDto.getRemark());
+
+        Page<Tag> page = new Page<>();
+        page.setCurrent(pageNum);
+        page.setSize(pageSize);
+        page(page, queryWrapper);
+
+        //encap and return
+        PageVo pageVo = new PageVo(page.getRecords(),page.getTotal());
+
+        return ResponseResult.okResult(pageVo);
+    }
+
+    //----------------------------------------------- Add tag -----------------------------------------
+    @Override
+    public ResponseResult addTag(Tag tag) {
+        // check if tag name is no null
+        if(!StringUtils.hasText(tag.getName())){
+            throw new SystemException(AppHttpCodeEnum.CONTENT_NOT_NULL);
+        }
+        save(tag);
+        return ResponseResult.okResult();
+    }
+
+    //----------------------------------------------- Delete tag -----------------------------------------
+    @Override
+    public ResponseResult deleteTag(Long id) {
+
+        //update del_flag of tag whose id = {id} from 0 to 1
+        getBaseMapper().deleteTag(id);
+
+        return ResponseResult.okResult();
+    }
+}
+```
+4. Update **TagMapper**
+```java
+package com.js.mapper;
+
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.js.domain.entity.Tag;
+
+
+public interface TagMapper extends BaseMapper<Tag> {
+
+    void deleteTag(Long id);
+}
+```
+5. Create **TagMapper.xml** to write logical delete query
+```xml
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.js.mapper.TagMapper">
+
+    <update id="deleteTag">
+        update
+            tag
+        set
+            del_flag = 1
+        where
+            id = #{id}
+    </update>
+
+</mapper>
+```
+#### 23.3.3 Test
+- admin Vue
+
+```text
+> d:
+> cd/BlogWeb/js-admin-vue
+> npm run dev
+```
+- redis
+
+```text
+> d:
+> cd/redis
+> redis-server.exe redis.windows.conf
+```
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/95861010-274b-4ace-96c9-32b8101278d7)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/a1b7bbf5-a15e-448e-9655-fca120c9e694)
+
+
+### 23.4 Update tag 
+
+#### 23.4.1 Interface design
+1. Get tag info by id. When the user clicks the update button, it is triggered and displayed in the pop-up box
+Path variable is in request path
+<table>
+	<tr>
+		<td>Request Method</td>
+		<td>Request Path</td>
+		<td>Request Head</td>
+	</tr>
+	<tr>
+		<td>GET</td>
+		<td>/content/tag/{id}</td>
+		<td>token needed</td>
+	</tr>
+</table>
+
+Response format
+```json
+{
+"code":200,
+	"data":{
+        "id":4,
+        "name":"tagName",
+        "remark":"remark"
+	},
+"msg":"operation success"
+}
+```
+
+2. Update tag info
+<table>
+	<tr>
+		<td>Request Method</td>
+		<td>Request Path</td>
+		<td>Request Head</td>
+	</tr>
+	<tr>
+		<td>PUT</td>
+		<td>/content/tag</td>
+		<td>token needed</td>
+	</tr>
+</table>
+
+Request body
+```json
+{
+    "id":"7",
+    "name":"tagName",
+    "remark":"remark"
+}
+```
+Response format
+```json
+{
+	"code":200,
+	"msg":"operation success"
+}
+```
+#### 23.4.2 Coding
+
+1. Create **TagVo**
+```java
+package com.js.domain.vo;
+
+import com.baomidou.mybatisplus.annotation.TableId;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class TagVo {
+
+    @TableId
+    private Long id;
+
+    private String name;
+
+    private String remark;
+}
+```
+2. Update **TagController**
+```java
+package com.js.controller;
+
+import com.js.Utils.BeanCopyUtil;
+import com.js.domain.ResponseResult;
+import com.js.domain.dto.TagListDto;
+import com.js.domain.entity.Tag;
+import com.js.domain.vo.PageVo;
+import com.js.domain.vo.TagVo;
+import com.js.service.TagService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/content/tag")
+public class TagController {
+
+    @Autowired
+    private TagService tagService;
+
+    @GetMapping("/list")
+    public ResponseResult<PageVo> list(Integer pageNum, Integer pageSize, TagListDto tagListDto){
+        return tagService.pageTagList(pageNum,pageSize,tagListDto);
+    }
+
+    @PostMapping
+    public ResponseResult addTag(@RequestBody TagListDto tagListDto){
+        Tag tag = BeanCopyUtil.copyBean(tagListDto, Tag.class);
+        return tagService.addTag(tag);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseResult deleteTag(@PathVariable Long id){
+        return tagService.deleteTag(id);
+    }
+
+    @GetMapping("/{id}")
+    public ResponseResult getTagInfo(@PathVariable Long id){
+        return tagService.getTagInfo(id);
+    }
+
+    @PutMapping
+    public ResponseResult updateTag(@RequestBody TagVo tagVo){
+        return tagService.updateTag(tagVo);
+    }
+}
+```
+3. Update **TagService**
+```java
+package com.js.service;
+
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.js.domain.ResponseResult;
+import com.js.domain.dto.TagListDto;
+import com.js.domain.entity.Tag;
+import com.js.domain.vo.PageVo;
+import com.js.domain.vo.TagVo;
+
+
+public interface TagService extends IService<Tag> {
+
+    ResponseResult<PageVo> pageTagList(Integer pageNum, Integer pageSize, TagListDto tagListDto);
+
+    ResponseResult addTag(Tag tag);
+
+    ResponseResult deleteTag(Long id);
+
+    ResponseResult getTagInfo(Long id);
+
+    ResponseResult updateTag(TagVo tagVo);
+}
+```
+4. Update **TagServiceImpl**
+```java
+package com.js.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.js.Utils.BeanCopyUtil;
+import com.js.constants.SystemConstants;
+import com.js.domain.ResponseResult;
+import com.js.domain.dto.TagListDto;
+import com.js.domain.entity.Tag;
+import com.js.domain.vo.PageVo;
+import com.js.domain.vo.TagVo;
+import com.js.enums.AppHttpCodeEnum;
+import com.js.exception.SystemException;
+import com.js.mapper.TagMapper;
+import com.js.service.TagService;
+import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+
+
+@Service("tagService")
+public class TagServiceImpl extends ServiceImpl<TagMapper, Tag> implements TagService {
+
+    //----------------------------------------------- Query tag list -----------------------------------------
+    @Override
+    public ResponseResult<PageVo> pageTagList(Integer pageNum, Integer pageSize, TagListDto tagListDto) {
+
+        //paging query
+        LambdaQueryWrapper<Tag> queryWrapper = new LambdaQueryWrapper<>();
+        //if tagListDto's name has value, then execute query, if name does not have value, it will not execute eq
+        queryWrapper.eq(StringUtils.hasText(tagListDto.getName()),Tag::getName, tagListDto.getName());
+        queryWrapper.eq(StringUtils.hasText(tagListDto.getRemark()),Tag::getRemark, tagListDto.getRemark());
+
+        Page<Tag> page = new Page<>();
+        page.setCurrent(pageNum);
+        page.setSize(pageSize);
+        page(page, queryWrapper);
+
+        //encap and return
+        PageVo pageVo = new PageVo(page.getRecords(),page.getTotal());
+
+        return ResponseResult.okResult(pageVo);
+    }
+
+    //----------------------------------------------- Add tag -----------------------------------------
+    @Override
+    public ResponseResult addTag(Tag tag) {
+        // check if tag name is no null
+        if(!StringUtils.hasText(tag.getName())){
+            throw new SystemException(AppHttpCodeEnum.CONTENT_NOT_NULL);
+        }
+        //mybatisplus' method to directly save tag into database
+        save(tag);
+        return ResponseResult.okResult();
+    }
+
+    //----------------------------------------------- Delete tag -----------------------------------------
+    @Override
+    public ResponseResult deleteTag(Long id) {
+
+        //update del_flag of tag whose id = {id} from 0 to 1
+        getBaseMapper().deleteTag(id);
+
+        return ResponseResult.okResult();
+    }
+
+    //----------------------------------------------- Update tag -----------------------------------------
+    @Override
+    public ResponseResult getTagInfo(Long id) {
+
+        //query the tag whose id = {id}, get name, remark
+        Tag tag = getById(id);
+
+        //convert Tag into TagVo with only three attributes: id, name, remark
+        TagVo tagVo = BeanCopyUtil.copyBean(tag, TagVo.class);
+        return ResponseResult.okResult(tagVo);
+    }
+    @Override
+    public ResponseResult updateTag(TagVo tagVo) {
+        if(!StringUtils.hasText(tagVo.getName())){
+            throw new SystemException(AppHttpCodeEnum.CONTENT_NOT_NULL);
+        }
+        Tag tag = BeanCopyUtil.copyBean(tagVo, Tag.class);
+        updateById(tag);
+        return ResponseResult.okResult();
+    }
+
+
+}
+```
+
+#### 23.4.3 Test
+- admin Vue
+
+```text
+> d:
+> cd/BlogWeb/js-admin-vue
+> npm run dev
+```
+- redis
+
+```text
+> d:
+> cd/redis
+> redis-server.exe redis.windows.conf
+```
+- _getTagInfo_
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/eecec019-790d-49e6-bb26-c5482ac60c4f)
+
+- _UpdateTag_
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/2431e9af-2c7a-4f5f-ad82-62eed8936782)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/f2658e00-8147-42d7-ba8b-107b81e00ac5)
 
 ## 24. Blog BackStage - 
