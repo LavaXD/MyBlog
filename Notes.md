@@ -6804,7 +6804,7 @@ public class AdminLoginController {
 
 ## 23. Blog BackStage - Article Tag
 ### 23.1 Query tag list
-#### 23.1.1 Interface design 
+#### I. Interface design 
 In order to facilitate the later management of the article, an article can have multiple tags. In the backstage, the function of paging query tag is required, and the corresponding article can be paging query according to the tag name
 <table>
 	<tr>
@@ -6840,7 +6840,7 @@ Response format
 	"msg":"operation success"
 }
 ```
-#### 23.1.2 Coding
+#### II. Coding
 1. Update **TagController**
 ```java
 package com.js.controller;
@@ -6944,7 +6944,7 @@ public class TagListDto {
 }
 ```
 
-#### 23.1.3 Test
+#### III. Test
 - admin Vue
 
 ```text
@@ -6965,7 +6965,7 @@ public class TagListDto {
 
 ### 23.2 Add tag 
 
-#### 23.2.1 Interface design
+#### I. Interface design
 <table>
 	<tr>
 		<td>Request Method</td>
@@ -6991,7 +6991,7 @@ Response format
 }
 ```
 
-#### 23.2.2 Coding
+#### II. Coding
 
 1. Update **TagController**
 ```java
@@ -7100,7 +7100,7 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag> implements TagSe
 }
 ```
 
-#### 23.2.3 Test
+#### III. Test
 
 - admin Vue
 
@@ -7123,7 +7123,7 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag> implements TagSe
 
 ### 23.3 Delete tag 
 
-#### 23.3.1 Interface design
+#### I. Interface design
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/dff098e6-e424-4d7c-afec-352d12bf8f04)
 
@@ -7149,7 +7149,7 @@ Response format
 }
 ```
 
-#### 23.3.2 Coding
+#### II. Coding
 1. Update **TagController**
 ```java
 package com.js.controller;
@@ -7305,7 +7305,7 @@ public interface TagMapper extends BaseMapper<Tag> {
 
 </mapper>
 ```
-#### 23.3.3 Test
+#### III. Test
 - admin Vue
 
 ```text
@@ -7328,7 +7328,7 @@ public interface TagMapper extends BaseMapper<Tag> {
 
 ### 23.4 Update tag 
 
-#### 23.4.1 Interface design
+#### I. Interface design
 1. Get tag info by id. When the user clicks the update button, it is triggered and displayed in the pop-up box
 Path variable is in request path
 <table>
@@ -7386,7 +7386,7 @@ Response format
 	"msg":"operation success"
 }
 ```
-#### 23.4.2 Coding
+#### II. Coding
 
 1. Create **TagVo**
 ```java
@@ -7577,7 +7577,7 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag> implements TagSe
 }
 ```
 
-#### 23.4.3 Test
+#### III. Test
 - admin Vue
 
 ```text
@@ -7600,4 +7600,691 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag> implements TagSe
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/f2658e00-8147-42d7-ba8b-107b81e00ac5)
 
-## 24. Blog BackStage - 
+## 24. Blog BackStage - Writing Blog
+
+### 24.1 Query category list
+#### I. Interface design
+<table>
+	<tr>
+		<td>Request Method</td>
+		<td>Request Path</td>
+		<td>Request Head</td>
+	</tr>
+	<tr>
+		<td>GET</td>
+		<td>/content/category/listAllCategory</td>
+		<td>token needed</td>
+	</tr>
+</table>
+
+Response format
+```json
+{
+	"code":200,
+	"data":[
+		{
+			"description":"wsd",
+			"id":1,
+			"name":"java"
+		},
+		{
+			"description":"wsd",
+			"id":2,
+			"name":"PHP"
+		}
+	],
+	"msg":"operation success"
+}
+```
+#### II. Coding
+1. Update **CategoryVo**
+```java
+package com.js.domain.vo;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class CategoryVo {
+
+    private Long id;
+    private String name;
+    private String description;
+}
+```
+2. Create **CategoryController** in backstage module
+```java
+package com.js.controller;
+
+import com.js.domain.ResponseResult;
+import com.js.domain.vo.CategoryVo;
+import com.js.service.CategoryService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/content/category")
+public class CategoryController {
+
+    @Autowired
+    private CategoryService categoryService;
+
+    @GetMapping("/listAllCategory")
+    public ResponseResult<CategoryVo> listAllCategory(){
+        return categoryService.listAllCategory();
+    }
+}
+```
+3. Update **CategoryService**
+```java
+package com.js.service;
+
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.js.domain.ResponseResult;
+import com.js.domain.vo.CategoryVo;
+
+
+public interface CategoryService extends IService<com.js.domain.entity.Category> {
+
+    ResponseResult getCategoryList();
+
+    ResponseResult<CategoryVo> listAllCategory();
+}
+```
+4. Update **CategoryServiceImpl**
+```java
+package com.js.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.js.Utils.BeanCopyUtil;
+import com.js.constants.SystemConstants;
+import com.js.domain.ResponseResult;
+import com.js.domain.entity.Article;
+import com.js.domain.vo.CategoryVo;
+import com.js.mapper.CategoryMapper;
+import com.js.service.ArticleService;
+import com.js.service.CategoryService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import com.js.domain.entity.Category;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+
+@Service("categoryService")
+public class CategoryServiceImpl extends ServiceImpl<CategoryMapper, Category> implements CategoryService {
+
+    @Autowired
+    private ArticleService articleService;
+
+    @Override
+    public ResponseResult getCategoryList() {
+
+        //inquire article table and get articles with normal status
+        LambdaQueryWrapper<Article> articleWrapper = new LambdaQueryWrapper<>();
+        articleWrapper.eq(Article::getStatus, SystemConstants.ARTICLE_STATUS_NORMAL);
+        List<Article> articleList = articleService.list(articleWrapper);
+
+        //get distinct category id
+        Set<Long> categoryIds = articleList.stream()
+                .map(article -> article.getCategoryId())
+                .collect(Collectors.toSet());
+
+
+        //inquire category table
+        List<Category> categories = listByIds(categoryIds);
+
+        categories.stream()
+                .filter(category -> SystemConstants.STATUS_NORMAL.equals(category.getStatus()))
+                .collect(Collectors.toList());
+
+        //encapsulate vo
+        List<CategoryVo> categoryVos = BeanCopyUtil.copyBeanList(categories, CategoryVo.class);
+
+        return ResponseResult.okResult(categoryVos);
+    }
+
+    // ---------------------------------- getAllCategories for writing blog ---------------------------
+    @Override
+    public ResponseResult<CategoryVo> listAllCategory() {
+
+        //query all categories whose status is normal
+        LambdaQueryWrapper<Category> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(Category::getStatus,SystemConstants.STATUS_NORMAL);
+        List<Category> list = list(queryWrapper);
+
+        //convert to categoryVos
+        List<CategoryVo> categoryVos = BeanCopyUtil.copyBeanList(list, CategoryVo.class);
+
+        return ResponseResult.okResult(categoryVos);
+    }
+}
+```
+#### III. Test
+- admin Vue
+
+```text
+> d:
+> cd/BlogWeb/js-admin-vue
+> npm run dev
+```
+- redis
+
+```text
+> d:
+> cd/redis
+> redis-server.exe redis.windows.conf
+```
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/22e56f7a-d42b-40b4-a33e-a9fbfc5dfb27)
+
+### 24.2 Query tag list
+#### I. Interface design
+<table>
+	<tr>
+		<td>Request Method</td>
+		<td>Request Path</td>
+		<td>Request Head</td>
+	</tr>
+	<tr>
+		<td>GET</td>
+		<td>/content/tag/listAllTag</td>
+		<td>token needed</td>
+	</tr>
+</table>
+
+Response format
+```json
+{
+	"code":200,
+	"data":[
+		{
+			"id":1,
+			"name":"Mybatis"
+		},
+		{
+			"id":4,
+			"name":"Java"
+		}
+	],
+	"msg":"operation success"
+}
+```
+#### II. Coding
+1. Update **TagController**
+```java
+package com.js.controller;
+
+import com.js.Utils.BeanCopyUtil;
+import com.js.domain.ResponseResult;
+import com.js.domain.dto.TagListDto;
+import com.js.domain.entity.Tag;
+import com.js.domain.vo.PageVo;
+import com.js.domain.vo.TagVo;
+import com.js.service.TagService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/content/tag")
+public class TagController {
+
+    @Autowired
+    private TagService tagService;
+
+    @GetMapping("/list")
+    public ResponseResult<PageVo> list(Integer pageNum, Integer pageSize, TagListDto tagListDto){
+        return tagService.pageTagList(pageNum,pageSize,tagListDto);
+    }
+
+    @PostMapping
+    public ResponseResult addTag(@RequestBody TagListDto tagListDto){
+        Tag tag = BeanCopyUtil.copyBean(tagListDto, Tag.class);
+        return tagService.addTag(tag);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseResult deleteTag(@PathVariable Long id){
+        return tagService.deleteTag(id);
+    }
+
+    @GetMapping("/{id}")
+    public ResponseResult getTagInfo(@PathVariable Long id){
+        return tagService.getTagInfo(id);
+    }
+
+    @PutMapping
+    public ResponseResult updateTag(@RequestBody TagVo tagVo){
+        return tagService.updateTag(tagVo);
+    }
+
+    @GetMapping("/listAllTag")
+    public ResponseResult listAllTag(){
+        return tagService.getAllTag();
+    }
+}
+```
+2. Update **TagService**
+```java
+package com.js.service;
+
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.js.domain.ResponseResult;
+import com.js.domain.dto.TagListDto;
+import com.js.domain.entity.Tag;
+import com.js.domain.vo.PageVo;
+import com.js.domain.vo.TagVo;
+
+
+public interface TagService extends IService<Tag> {
+
+    ResponseResult<PageVo> pageTagList(Integer pageNum, Integer pageSize, TagListDto tagListDto);
+
+    ResponseResult addTag(Tag tag);
+
+    ResponseResult deleteTag(Long id);
+
+    ResponseResult getTagInfo(Long id);
+
+    ResponseResult updateTag(TagVo tagVo);
+
+    ResponseResult getAllTag();
+}
+```
+3. Update **TagServiceImpl**
+```java
+package com.js.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.js.Utils.BeanCopyUtil;
+import com.js.constants.SystemConstants;
+import com.js.domain.ResponseResult;
+import com.js.domain.dto.TagListDto;
+import com.js.domain.entity.Tag;
+import com.js.domain.vo.PageVo;
+import com.js.domain.vo.TagVo;
+import com.js.enums.AppHttpCodeEnum;
+import com.js.exception.SystemException;
+import com.js.mapper.TagMapper;
+import com.js.service.TagService;
+import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+
+import java.util.List;
+
+
+@Service("tagService")
+public class TagServiceImpl extends ServiceImpl<TagMapper, Tag> implements TagService {
+
+    //----------------------------------------------- Query tag list -----------------------------------------
+    @Override
+    public ResponseResult<PageVo> pageTagList(Integer pageNum, Integer pageSize, TagListDto tagListDto) {
+
+        //paging query
+        LambdaQueryWrapper<Tag> queryWrapper = new LambdaQueryWrapper<>();
+        //if tagListDto's name has value, then execute query, if name does not have value, it will not execute eq
+        queryWrapper.eq(StringUtils.hasText(tagListDto.getName()),Tag::getName, tagListDto.getName());
+        queryWrapper.eq(StringUtils.hasText(tagListDto.getRemark()),Tag::getRemark, tagListDto.getRemark());
+
+        Page<Tag> page = new Page<>();
+        page.setCurrent(pageNum);
+        page.setSize(pageSize);
+        page(page, queryWrapper);
+
+        //encap and return
+        PageVo pageVo = new PageVo(page.getRecords(),page.getTotal());
+
+        return ResponseResult.okResult(pageVo);
+    }
+
+    //----------------------------------------------- Add tag -----------------------------------------
+    @Override
+    public ResponseResult addTag(Tag tag) {
+        // check if tag name is no null
+        if(!StringUtils.hasText(tag.getName())){
+            throw new SystemException(AppHttpCodeEnum.CONTENT_NOT_NULL);
+        }
+        //mybatisplus' method to directly save tag into database
+        save(tag);
+        return ResponseResult.okResult();
+    }
+
+    //----------------------------------------------- Delete tag -----------------------------------------
+    @Override
+    public ResponseResult deleteTag(Long id) {
+
+        //update del_flag of tag whose id = {id} from 0 to 1
+        getBaseMapper().deleteTag(id);
+
+        return ResponseResult.okResult();
+    }
+
+    //----------------------------------------------- Update tag -----------------------------------------
+    @Override
+    public ResponseResult getTagInfo(Long id) {
+
+        //query the tag whose id = {id}, get name, remark
+        Tag tag = getById(id);
+
+        //convert Tag into TagVo with only three attributes: id, name, remark
+        TagVo tagVo = BeanCopyUtil.copyBean(tag, TagVo.class);
+        return ResponseResult.okResult(tagVo);
+    }
+    @Override
+    public ResponseResult updateTag(TagVo tagVo) {
+        if(!StringUtils.hasText(tagVo.getName())){
+            throw new SystemException(AppHttpCodeEnum.CONTENT_NOT_NULL);
+        }
+        Tag tag = BeanCopyUtil.copyBean(tagVo, Tag.class);
+        updateById(tag);
+        return ResponseResult.okResult();
+    }
+
+    //----------------------------------------------- get all tags -----------------------------------------
+    @Override
+    public ResponseResult getAllTag() {
+
+        //get all tags
+        List<Tag> tags = list();
+
+        //convert to tagVo
+        List<TagVo> tagVos = BeanCopyUtil.copyBeanList(tags, TagVo.class);
+        return ResponseResult.okResult(tagVos);
+    }
+
+
+}
+```
+#### III. Test
+- admin Vue
+
+```text
+> d:
+> cd/BlogWeb/js-admin-vue
+> npm run dev
+```
+- redis
+
+```text
+> d:
+> cd/redis
+> redis-server.exe redis.windows.conf
+```
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/8823153b-e8b8-437c-8066-dd6f7c7ad1fb)
+
+### 24.3 Image uploading
+#### I. Interface design
+<table>
+	<tr>
+		<td>Request Method</td>
+		<td>Request Path</td>
+		<td>Request Head</td>
+	</tr>
+	<tr>
+		<td>POST</td>
+		<td>/upload</td>
+		<td>token needed</td>
+	</tr>
+</table>
+
+Request head
+```java
+Content-Type ：multipart/form-data;
+```
+
+Response format
+```json
+{
+    "code": 200,
+    "data": "url",
+    "msg": "operation success"
+}
+```
+#### II. Coding
+1. Create **UploadController** under backstage module
+
+```java
+package com.js.controller;
+
+import com.js.domain.ResponseResult;
+import com.js.service.UploadService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+
+
+@RestController
+public class UploadController {
+
+    @Autowired
+    private UploadService uploadService;
+
+    @PostMapping("/upload")
+    public ResponseResult uploadImg(@RequestParam("img")MultipartFile multipartFile){
+        try{
+            return uploadService.uploadImg(multipartFile);
+        }catch (Exception e){
+            e.printStackTrace();
+            throw new RuntimeException("img uploading fail");
+        }
+
+    }
+
+}
+```
+#### III. Test
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/bfa519a6-496d-44db-8a9c-36902e3558e7)
+
+### 24.1 Add new article
+#### I. Interface design
+<table>
+	<tr>
+		<td>Request Method</td>
+		<td>Request Path</td>
+		<td>Request Head</td>
+	</tr>
+	<tr>
+		<td>POST</td>
+		<td>/content/article</td>
+		<td>token needed</td>
+	</tr>
+</table>
+
+Request body
+```json
+{
+    "title":"测试新增博文",
+    "thumbnail":"https://sg-blog-oss.oss-cn-beijing.aliyuncs.com/2022/08/21/4ceebc07e7484beba732f12b0d2c43a9.png",
+    "isTop":"0",
+    "isComment":"0",
+    "content":"# 一级标题\n## 二级标题\n![Snipaste_20220228_224837.png](https://sg-blog-oss.oss-cn-beijing.aliyuncs.com/2022/08/21/c3af554d4a0f4935b4073533a4c26ee8.png)\n正文",
+    "tags":[
+        1,
+        4
+    ],
+    "categoryId":1,
+    "summary":"哈哈",
+    "status":"1"
+}
+```
+
+Response format
+```json
+{
+	"code":200,
+	"msg":"operation success"
+}
+```
+#### II. Coding
+1. Create **AddArticleDto** for responsing attributes
+```java
+package com.js.domain.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.List;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class AddArticleDto {
+
+    private String title;
+
+    private String content;
+
+    private String summary;
+
+    private Long categoryId;
+
+    private String thumbnail;
+
+    //1 - yes, 0 - no
+    private String isTop;
+
+    //1 - normal, 0 - draft
+    private String status;
+
+    //1 - yes, 0 - no
+    private String isComment;
+
+    private List<Long> tags;
+}
+```
+2. Add @TableField annotation in **Article** for field auto fill 
+```java
+    @TableField(fill = FieldFill.INSERT)
+    private Long createBy;
+
+    @TableField(fill = FieldFill.INSERT)
+    private Date createTime;
+
+    @TableField(fill = FieldFill.INSERT_UPDATE)
+    private Long updateBy;
+
+    @TableField(fill = FieldFill.INSERT_UPDATE)
+    private Date updateTime;
+```
+3. Create **ArticleController** in backstage module
+```java
+package com.js.controller;
+
+import com.js.domain.ResponseResult;
+import com.js.domain.dto.AddArticleDto;
+import com.js.service.ArticleService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/content/article")
+public class ArticleController {
+
+    @Autowired
+    private ArticleService articleService;
+
+    @PostMapping
+    public ResponseResult addArticle(@RequestBody AddArticleDto addArticleDto){
+        return articleService.addArticle(addArticleDto);
+    }
+}
+```
+3. Update **ArticleService** in shared module
+```java
+package com.js.service;
+
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.js.domain.ResponseResult;
+import com.js.domain.dto.AddArticleDto;
+import com.js.domain.entity.Article;
+
+public interface ArticleService extends IService<Article> {
+    ResponseResult hotArticleList();
+
+    ResponseResult articleList(Integer pageNum, Integer pageSize, Long categoryId);
+
+    ResponseResult getArticleDetail(Long id);
+
+    ResponseResult updateViewCount(Long id);
+
+    ResponseResult addArticle(AddArticleDto addArticleDto);
+}
+```
+4. Create **ArticleTag** entity of table article_tag and its related mapper, service, serviceImpl
+- Since an article can have multiple tags, a tag can be used by multiple articles, so a middle entity AritcleTag is needed
+```java
+package com.js.domain.entity;
+
+import java.io.Serializable;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+
+@SuppressWarnings("serial")
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@TableName("article_tag")
+public class ArticleTag  {
+    
+    @TableId
+    private Long articleId;
+    
+    @TableId
+    private Long tagId;
+
+    
+}
+```
+
+5. Update **ArticleServiceImpl**
+```java
+ @Autowired
+    private ArticleTagService articleTagService;
+
+    //------------------------------------------- add new article --------------------------------------------------
+    @Override
+    @Transactional // using atomicity of transaction to ensure that saving article operation and saving connection between article and tags are either both successful or not
+    public ResponseResult addArticle(AddArticleDto addArticleDto) {
+
+        //add article
+        Article article = BeanCopyUtil.copyBean(addArticleDto, Article.class);
+        save(article);
+
+        //transfer tagId to a ArticleTag instance
+        List<ArticleTag> articleTags = addArticleDto.getTags().stream()
+                .map(tagId -> new ArticleTag(article.getId(),tagId))
+                .collect(Collectors.toList());
+
+        //add connection between article and tags
+        articleTagService.saveBatch(articleTags);
+        return ResponseResult.okResult();
+    }
+```
+#### III. Test
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/bb253948-d778-48fe-a9bf-4f4197b8f584)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/b192f084-ffd1-4da4-ba97-c76f422b732f)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/49538294-0666-4299-ab92-a9cfdf0cbce3)
+
+
