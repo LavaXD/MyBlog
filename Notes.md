@@ -8091,7 +8091,7 @@ public class UploadController {
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/bfa519a6-496d-44db-8a9c-36902e3558e7)
 
-### 24.1 Add new article
+### 24.4 Add new article
 #### I. Interface design
 <table>
 	<tr>
@@ -8287,4 +8287,326 @@ public class ArticleTag  {
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/49538294-0666-4299-ab92-a9cfdf0cbce3)
 
+## 25. Export category excel file
 
+### 25.1 Interface design
+<table>
+	<tr>
+		<td>Request Method</td>
+		<td>Request Path</td>
+		<td>Request Head</td>
+	</tr>
+	<tr>
+		<td>GET</td>
+		<td>/content/category/export</td>
+		<td>token needed</td>
+	</tr>
+</table>
+
+- If successful, excel file will be downloaded
+- If fail, response format:
+```json
+{
+	"code":500,
+	"msg":"system error"
+}
+```
+
+- **EasyExcel** is used here to export excel file
+> official website: https://github.com/alibaba/easyexcel
+
+> quickstart: https://easyexcel.opensource.alibaba.com/docs/current/quickstart/write#%E7%A4%BA%E4%BE%8B%E4%BB%A3%E7%A0%81-1
+
+### 25.2 Coding
+1. Update **WebUtils**
+```java
+package com.js.Utils;
+
+import org.springframework.web.context.request.RequestContextHolder;
+import javax.servlet.ServletContext;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+
+public class WebUtils {
+    /**
+     * Render the string to the client
+     *
+     * @param response render object
+     * @param string String to be rendered
+     * @return null
+     */
+    public static void renderString(HttpServletResponse response, String string) {
+        try
+        {
+            response.setStatus(200);
+            response.setContentType("application/json");
+            response.setCharacterEncoding("utf-8");
+            response.getWriter().print(string);
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+        }
+    }
+
+    //easyExcel export
+    public static void setDownLoadHeader(String filename, HttpServletResponse response) throws UnsupportedEncodingException {
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setCharacterEncoding("utf-8");
+        String fname= URLEncoder.encode(filename,"UTF-8").replaceAll("\\+", "%20");
+        response.setHeader("Content-disposition","attachment; filename="+fname);
+    }
+}
+```
+2. Create **ExcelCategoryVo**
+```java
+package com.js.domain.vo;
+
+import com.alibaba.excel.annotation.ExcelProperty;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class ExcelCategoryVo {
+
+    @ExcelProperty("categoryName")
+    private String name;
+
+    @ExcelProperty("description")
+    private  String description;
+
+    @ExcelProperty("0 - normal, 1 - hidden")
+    private String status;
+}
+```
+3. Update **CategoryService**
+```java
+package com.js.service;
+
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.js.domain.ResponseResult;
+import com.js.domain.vo.CategoryVo;
+
+
+public interface CategoryService extends IService<com.js.domain.entity.Category> {
+
+    ResponseResult getCategoryList();
+
+    ResponseResult<CategoryVo> listAllCategory();
+}
+```
+4. Update **CategoryController**
+```java
+package com.js.controller;
+
+import com.alibaba.excel.EasyExcel;
+import com.alibaba.fastjson.JSON;
+import com.js.Utils.BeanCopyUtil;
+import com.js.Utils.WebUtils;
+import com.js.domain.ResponseResult;
+import com.js.domain.entity.Category;
+import com.js.domain.vo.CategoryVo;
+import com.js.domain.vo.ExcelCategoryVo;
+import com.js.enums.AppHttpCodeEnum;
+import com.js.service.CategoryService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import javax.servlet.http.HttpServletResponse;
+import java.util.List;
+
+@RestController
+@RequestMapping("/content/category")
+public class CategoryController {
+
+    @Autowired
+    private CategoryService categoryService;
+
+    @GetMapping("/listAllCategory")
+    public ResponseResult<CategoryVo> listAllCategory(){
+        return categoryService.listAllCategory();
+    }
+
+    @GetMapping("/export")
+    public void export(HttpServletResponse response){
+
+        try {
+            //config request head of the file
+            WebUtils.setDownLoadHeader("category.xlsx",response);
+
+            //get exporting data
+            List<Category> categories = categoryService.list();
+            List<ExcelCategoryVo> excelCategoryVos = BeanCopyUtil.copyBeanList(categories, ExcelCategoryVo.class);
+
+            //write data into excel
+            EasyExcel
+                    .write(response.getOutputStream(), ExcelCategoryVo.class).autoCloseStream(Boolean.FALSE)
+                    .sheet("article categories")
+                    .doWrite(excelCategoryVos);
+
+        } catch (Exception e) {
+            //if exception occur, respond json data
+            ResponseResult result = ResponseResult.errorResult(AppHttpCodeEnum.SYSTEM_ERROR);
+            WebUtils.renderString(response, JSON.toJSONString(result));
+        }
+    }
+}
+```
+
+### 25.3 Test
+- admin Vue
+
+```text
+> d:
+> cd/BlogWeb/js-admin-vue
+> npm run dev
+```
+- redis
+
+```text
+> d:
+> cd/redis
+> redis-server.exe redis.windows.conf
+```
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/2c0d8d24-2168-4747-a925-f6caf15872bb)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/70559bcc-e64d-4f85-a289-ed8d28fe6d83)
+
+## 26. Authority Control
+
+### 26.1 Interface requirments
+- Through the customized permission check, to achieve permission control of the interface 'export category'
+
+### 26.2 Coding
+1. Update **SecurityConfig** - add security annotation
+```java
+@Configuration
+@EnableGlobalMethodSecurity(prePostEnabled = true) //for @PreAuthorize() to work
+public class SecurityConfig extends WebSecurityConfigurerAdapter {
+```
+2. Update **UserDetailsImpl** - add permission info encapsulation
+```java
+package com.js.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.js.constants.SystemConstants;
+import com.js.domain.entity.LoginUser;
+import com.js.domain.entity.User;
+import com.js.mapper.MenuMapper;
+import com.js.mapper.UserMapper;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Objects;
+
+@Service
+public class UserDetailsImpl implements UserDetailsService {
+
+    @Autowired
+    private UserMapper userMapper;
+
+    @Autowired
+    private MenuMapper menuMapper;
+
+    @Override
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+
+        LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+
+        //inquire user info by username
+        queryWrapper.eq(User::getUserName,username);
+        User user = userMapper.selectOne(queryWrapper);
+
+        //check if user is found, throw exception if not
+        if(Objects.isNull(user)){
+            throw new RuntimeException("User does not exist!");
+        }
+
+        //return user info
+        //TODO inquire authority info encapsulation
+        //TODO only if its backstage, query authority info encapsulation is needed
+        //the type of admin user in backstage is 1
+        if(user.getType().equals(SystemConstants.ADMIN)){
+            List<String> perms = menuMapper.selectPermsById(user.getId());
+            return new LoginUser(user,perms);
+        }
+        return new LoginUser(user,null);
+    }
+}
+```
+3. Create **PermissionService**
+```java
+package com.js.service.impl;
+
+import com.js.Utils.SecurityUtil;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service("ps")
+public class PermissionService {
+
+    /**
+     * check if current user has certain permission
+     * @param permission
+     * @return
+     */
+    public boolean hasPermissions(String permission){
+
+        //if it's super admin (userId = 1), return true
+        if(SecurityUtil.isAdmin()){
+            return true;
+        }
+
+        //else, get current user's permission, check if the permission is existed
+        List<String> permissions = SecurityUtil.getLoginUser().getPermissions();
+        return permissions.contains(permission);
+    }
+}
+```
+4. Update **export** in **CategoryController** using security annotation
+```java
+    @PreAuthorize("@ps.hasPermissions('content:category:export')")
+    @GetMapping("/export")
+    public void export(HttpServletResponse response){
+
+        try {
+            //config request head of the file
+            WebUtils.setDownLoadHeader("category.xlsx",response);
+
+            //get exporting data
+            List<Category> categories = categoryService.list();
+            List<ExcelCategoryVo> excelCategoryVos = BeanCopyUtil.copyBeanList(categories, ExcelCategoryVo.class);
+
+            //write data into excel
+            EasyExcel
+                    .write(response.getOutputStream(), ExcelCategoryVo.class).autoCloseStream(Boolean.FALSE)
+                    .sheet("article categories")
+                    .doWrite(excelCategoryVos);
+
+        } catch (Exception e) {
+            //if exception occur, respond json data
+            ResponseResult result = ResponseResult.errorResult(AppHttpCodeEnum.SYSTEM_ERROR);
+            WebUtils.renderString(response, JSON.toJSONString(result));
+        }
+    }
+```
+### 26.3 Test
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/06395ac9-bae6-4bab-aeb3-dfb545a90969)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/e4aded76-ef89-46c7-9a16-0deed8c4b7e9)
+
+## 27. 
