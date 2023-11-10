@@ -8609,4 +8609,396 @@ public class PermissionService {
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/e4aded76-ef89-46c7-9a16-0deed8c4b7e9)
 
-## 27. 
+## 27. Blog BackStage - Article list
+
+### 27.1 Query article
+#### I. Interface design
+<table>
+	<tr>
+		<td>Request Method</td>
+		<td>Request Path</td>
+		<td>Request Head</td>
+	</tr>
+	<tr>
+		<td>GET</td>
+		<td>/content/article/list</td>
+		<td>token needed</td>
+	</tr>
+</table>
+
+Request parameter
+```text
+pageNum, pageSize, title, summary
+```
+Response format
+```json
+{
+	"code":200,
+	"data":{
+		"rows":[
+			{
+				"categoryId":"1",
+				"content":"content",
+				"createTime":"2023-08-10 07:20:11",
+				"id":"1",
+				"isComment":"0",
+				"isTop":"1",
+				"status":"0",
+				"summary":"summary",
+				"thumbnail":"thumbnail.png|jpg",
+				"title":"title",
+				"viewCount":"viewCount"
+			}
+		],
+		"total":"1"
+	},
+	"msg":"operation success"
+}
+```
+#### II. Coding
+1. Update **ArticleController**
+```java
+package com.js.controller;
+
+import com.js.domain.ResponseResult;
+import com.js.domain.dto.AddArticleDto;
+import com.js.domain.entity.Article;
+import com.js.domain.vo.PageVo;
+import com.js.service.ArticleService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/content/article")
+public class ArticleController {
+
+    @Autowired
+    private ArticleService articleService;
+
+    @PostMapping
+    public ResponseResult addArticle(@RequestBody AddArticleDto addArticleDto){
+        return articleService.addArticle(addArticleDto);
+    }
+
+    @GetMapping("/list")
+    public ResponseResult<PageVo> listArticle(Article article, Integer pageNum, Integer pageSize){
+        return articleService.listArticle(article,pageNum,pageSize);
+    }
+}
+```
+2. Update **ArticleService**
+```java
+package com.js.service;
+
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.js.domain.ResponseResult;
+import com.js.domain.dto.AddArticleDto;
+import com.js.domain.entity.Article;
+import com.js.domain.vo.PageVo;
+
+public interface ArticleService extends IService<Article> {
+    ResponseResult hotArticleList();
+
+    ResponseResult articleList(Integer pageNum, Integer pageSize, Long categoryId);
+
+    ResponseResult getArticleDetail(Long id);
+
+    ResponseResult updateViewCount(Long id);
+
+    ResponseResult addArticle(AddArticleDto addArticleDto);
+
+    ResponseResult<PageVo> listArticle(Article article, Integer pageNum, Integer pageSize);
+
+}
+```
+3. Update **ArticleServiceImpl**
+```java
+//------------------------------------------- admin list article ------------------------------------------------
+    @Override
+    public ResponseResult<PageVo> listArticle(Article article, Integer pageNum, Integer pageSize) {
+
+        //for fuzzy query
+        LambdaQueryWrapper<Article> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper
+                .like(StringUtils.hasText(article.getTitle()), Article::getTitle, article.getTitle())
+                .like(StringUtils.hasText(article.getSummary()),Article::getSummary, article.getSummary());
+
+        //set page attributes
+        Page<Article> page = new Page<>(pageNum,pageSize);
+        page(page,queryWrapper);
+
+        //convert page to pageVo
+        PageVo pageVo = new PageVo(page.getRecords(),page.getTotal());
+        return ResponseResult.okResult(pageVo);
+    }
+```
+
+#### III. Test
+- admin Vue
+
+```text
+> d:
+> cd/BlogWeb/js-admin-vue
+> npm run dev
+```
+- redis
+
+```text
+> d:
+> cd/redis
+> redis-server.exe redis.windows.conf
+```
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/045f226e-01f5-407d-beb0-16fbd60e4d8b)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/c5b71cd4-ecd8-45df-a24e-d11a75a25e32)
+
+### 27.2 Update article
+#### I. Interface design
+1. Jump to the updating page where detail info of article is shown
+<table>
+	<tr>
+		<td>Request Method</td>
+		<td>Request Path</td>
+		<td>Request Head</td>
+	</tr>
+	<tr>
+		<td>GET</td>
+		<td>/content/article/{id}</td>
+		<td>token needed</td>
+	</tr>
+</table>
+
+Path parameter
+> /{id}
+
+Response format
+```json
+{
+	"code":200,
+	"data":{
+		"categoryId":"1",
+		"content":"content",
+		"createBy":"1",
+		"createTime":"2023-08-28 15:15:46",
+		"delFlag":0,
+		"id":"10",
+		"isComment":"0",
+		"isTop":"1",
+		"status":"0",
+		"summary":"summary",
+		"tags":[
+			"1",
+			"4",
+			"5"
+		],
+		"thumbnail":"thumbnail.png|jpg",
+		"title":"title",
+		"updateBy":"1",
+		"updateTime":"2022-08-28 15:15:46",
+		"viewCount":"0"
+	},
+	"msg":"operation success"
+}
+```
+2. Update article info and save into database
+<table>
+	<tr>
+		<td>Request Method</td>
+		<td>Request Path</td>
+		<td>Request Head</td>
+	</tr>
+	<tr>
+		<td>PUT</td>
+		<td>/content/article</td>
+		<td>token needed</td>
+	</tr>
+</table>
+
+Request body
+```json
+{
+    "categoryId":"1",
+    "content":"content",
+    "createBy":"1",
+    "createTime":"2023-08-28 15:15:46",
+    "delFlag":0,
+    "id":"10",
+    "isComment":"0",
+    "isTop":"1",
+    "status":"0",
+    "summary":"summary",
+    "tags":[
+        "1",
+        "4",
+        "5"
+    ],
+    "thumbnail":"thumbnail.png|jpg",
+    "title":"title",
+    "updateBy":"1",
+    "updateTime":"2022-08-28 15:15:46",
+    "viewCount":"0"
+}
+```
+Response format
+```json
+{
+	"code":200,
+	"msg":"操作成功"
+}
+```
+#### II. Coding
+1. Update **ArticleController**
+```java
+@GetMapping("/{id}")
+    public ResponseResult<Article> jumpToUpdate(@PathVariable Long id){
+        return articleService.jumpToUpdate(id);
+    }
+
+    @PutMapping
+    public ResponseResult updateArticle(@RequestBody Article article){
+        return articleService.updateArticle(article);
+    }
+```
+2. Update **ArticleService**
+```java
+	ResponseResult<Article> jumpToUpdate(Long id);
+
+    	ResponseResult updateArticle(Article article);
+```
+3. Update **ArticleServiceImpl**
+```java
+//------------------------------------------- admin update article ------------------------------------------------
+    @Override
+    public ResponseResult<Article> jumpToUpdate(Long id) {
+
+        //get article content by id
+        Article article = getById(id);
+
+        //get corresponding tags of the article
+        LambdaQueryWrapper<ArticleTag> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(ArticleTag::getArticleId,article.getId());
+        List<ArticleTag> articleTags = articleTagService.list(queryWrapper);
+
+        //manipulate articleTags list, convert it into a list of tagId
+        List<Long> tagIds = articleTags.stream()
+                .map(articleTag -> articleTag.getTagId())
+                .collect(Collectors.toList());
+
+        article.setTags(tagIds);
+        return ResponseResult.okResult(article);
+    }
+
+    @Override
+    public ResponseResult updateArticle(Article article) {
+
+        //update this article into database
+        updateById(article);
+
+        //delete original tag & article connection
+        LambdaQueryWrapper<ArticleTag> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(ArticleTag::getArticleId,article.getId());
+        articleTagService.remove(wrapper);
+
+        //update new connection into database
+        List<ArticleTag> articleTags = article.getTags().stream()
+                .map(tagId -> new ArticleTag(article.getId(), tagId))
+                .collect(Collectors.toList());
+        articleTagService.saveBatch(articleTags);
+
+        return ResponseResult.okResult();
+    }
+```
+#### III. Test
+- Blog Vue
+
+```text
+> d:
+> cd/BlogWeb/js-blog-vue
+> npm run dev
+```
+- admin Vue
+
+```text
+> d:
+> cd/BlogWeb/js-admin-vue
+> npm run dev
+```
+- redis
+
+```text
+> d:
+> cd/redis
+> redis-server.exe redis.windows.conf
+```
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/2f269a89-f07a-409b-87c1-1eac02e85cfa)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/b9ab7107-568e-49a6-961a-2038ecfee500)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/d9a9d9fc-a318-4817-a034-1f00a8119d53)
+
+
+### 27.3 Delete article
+#### I. Interface design
+<table>
+	<tr>
+		<td>Request Method</td>
+		<td>Request Path</td>
+		<td>Request Head</td>
+	</tr>
+	<tr>
+		<td>DELETE</td>
+		<td>/content/article/{id}</td>
+		<td>token needed</td>
+	</tr>
+</table>
+
+Response format
+```json
+{
+	"code":200,
+	"msg":"操作成功"
+}
+```
+#### II. Coding
+1. Update **ArticleController**
+```java
+@DeleteMapping("/{id}")
+    public ResponseResult deleteArticle(@PathVariable Long id){
+        return articleService.deleteArticle(id);
+    }
+```
+2. Update **ArticleService**
+```java
+	ResponseResult deleteArticle(Long id);
+```
+3. Update **ArticleServiceImpl**
+```java
+    //------------------------------------------- admin delete article ------------------------------------------------
+    @Override
+    public ResponseResult deleteArticle(Long id) {
+
+        removeById(id);
+        return ResponseResult.okResult();
+    }
+```
+#### III. Test
+- admin Vue
+
+```text
+> d:
+> cd/BlogWeb/js-admin-vue
+> npm run dev
+```
+- redis
+
+```text
+> d:
+> cd/redis
+> redis-server.exe redis.windows.conf
+```
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/230303b0-36b3-48fc-80fa-2b2e08c763db)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/4304d50c-12b1-40d5-8316-5b62a9dab34e)
+
+## 28. Menu List
