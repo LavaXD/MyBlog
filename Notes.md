@@ -9001,4 +9001,627 @@ Response format
 
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/4304d50c-12b1-40d5-8316-5b62a9dab34e)
 
-## 28. Menu List
+## 28. Blog Backstage - Menu CRUD
+### **MenuController**
+```java
+package com.js.controller;
+
+import com.js.domain.ResponseResult;
+import com.js.domain.dto.MenuDto;
+import com.js.domain.entity.Menu;
+
+import com.js.service.MenuService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/system/menu")
+public class MenuController {
+
+    @Autowired
+    private MenuService menuService;
+
+    @GetMapping("/list")
+    public ResponseResult listMenu(MenuDto menuDto){
+        return menuService.listMenu(menuDto);
+    }
+
+    @PostMapping
+    public ResponseResult addMenu(@RequestBody Menu menu){
+        return menuService.addMenu(menu);
+    }
+
+    @GetMapping("/{id}")
+    public ResponseResult jumpToUpdate(@PathVariable Long id){
+        return menuService.jumpToUpdate(id);
+    }
+
+    @PutMapping
+    public ResponseResult updateMenu(@RequestBody Menu menu){
+        return menuService.updateMenu(menu);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseResult deleteMenu(@PathVariable Long id){
+        return menuService.deleteMenu(id);
+    }
+}
+```
+### **MenuService**
+```java
+package com.js.service;
+
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.js.domain.ResponseResult;
+import com.js.domain.dto.MenuDto;
+import com.js.domain.entity.Menu;
+
+import java.util.List;
+
+
+public interface MenuService extends IService<Menu> {
+
+    List<String> selectPermsByUserId(Long id);
+
+    List<Menu> selectRouterMenuTreeById(Long userId);
+
+    ResponseResult listMenu(MenuDto menuDto);
+
+    ResponseResult addMenu(Menu menu);
+
+    ResponseResult jumpToUpdate(Long id);
+
+    ResponseResult updateMenu(Menu menu);
+
+    ResponseResult deleteMenu(Long id);
+}
+```
+### **MenuServiceImpl**
+```java
+package com.js.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.js.Utils.BeanCopyUtil;
+import com.js.Utils.SecurityUtil;
+import com.js.constants.SystemConstants;
+import com.js.domain.ResponseResult;
+import com.js.domain.dto.MenuDto;
+import com.js.domain.entity.Menu;
+import com.js.domain.vo.MenuVo;
+import com.js.enums.AppHttpCodeEnum;
+import com.js.mapper.MenuMapper;
+import com.js.service.MenuService;
+import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+
+@Service("menuService")
+public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements MenuService {
+
+    @Override
+    public List<String> selectPermsByUserId(Long id) { //inquire permission by userId
+
+        LambdaQueryWrapper<Menu> queryWrapper = new LambdaQueryWrapper<>();
+        //if it's 'admin', return all authority (menuType = 'F' or 'C'; status is normal, not deleted)
+        if(id == 1L){
+            queryWrapper
+                    .in(Menu::getMenuType, SystemConstants.MENU,SystemConstants.BUTTON)
+                    .eq(Menu::getStatus, SystemConstants.STATUS_NORMAL);
+            List<Menu> menus = list(queryWrapper);
+
+            //since the list we get above is a list of Menu, so convert it into a list of String
+            List<String> perms = menus.stream()
+                    .map(Menu::getPerms)
+                    .collect(Collectors.toList());
+
+            return perms;
+        }
+
+        //else, return corresponding authority
+        return getBaseMapper().selectPermsById(id);
+    }
+
+    @Override
+    public List<Menu> selectRouterMenuTreeById(Long userId) {
+
+        MenuMapper menuMapper = getBaseMapper();
+        List<Menu> menus = null;
+
+        //check if it's admin
+        if(SecurityUtil.isAdmin()){
+            //if yes, return all menus
+             menus = menuMapper.selectAllRouterMenu();
+        } else {
+            //else, return corresponding menus
+            menus = menuMapper.selectRouterMenuById(userId);
+        }
+
+        //create tree model
+        List<Menu> menuTree = menuTreeBuilder(menus,0L);
+        return menuTree;
+    }
+
+    /*
+    1. find first level menu - parentId = 0
+    2. find children of first menu
+     */
+    private List<Menu> menuTreeBuilder(List<Menu> menus, Long parentId) {
+        //manipulate menus list
+        List<Menu> menuTree = menus.stream()
+                .filter(menu -> menu.getParentId().equals(parentId))
+                .map(menu -> menu.setChildren(getChildren(menu, menus)))
+                .collect(Collectors.toList());
+
+        return menuTree;
+    }
+
+    /**
+     * get menu's children list
+     * @param menu
+     * @param menus
+     * @return
+     */
+    private List<Menu> getChildren(Menu menu, List<Menu> menus) {
+
+        //manipulate menus list, find children of 'menu'
+        List<Menu> children = menus.stream()
+                .filter(m -> m.getParentId().equals(menu.getId()))
+                //.map(m-> m.setChildren(getChildren(m,menus))) // this step is for getting children for children menu, it is a backup solution but not that necessary
+                .collect(Collectors.toList());
+
+        return children;
+    }
+
+    //--------------------------------------------- admin list menu -------------------------------------------
+    @Override
+    public ResponseResult listMenu(MenuDto menuDto) {
+
+        //fuzzy search for menuName & status
+        LambdaQueryWrapper<Menu> wrapper = new LambdaQueryWrapper<>();
+        wrapper
+                .like(StringUtils.hasText(menuDto.getMenuName()),Menu::getMenuName,menuDto.getMenuName())
+                .like(StringUtils.hasText(menuDto.getStatus()),Menu::getStatus,menuDto.getStatus())
+                .orderByAsc(Menu::getParentId)
+                .orderByAsc(Menu::getOrderNum);
+
+        //list all menus based on the wrapper
+        List<Menu> menus = list(wrapper);
+
+        return ResponseResult.okResult(menus);
+    }
+
+    //--------------------------------------------- admin add menu -------------------------------------------
+    @Override
+    public ResponseResult addMenu(Menu menu) {
+
+        //save menu to database
+        save(menu);
+
+        return ResponseResult.okResult();
+    }
+
+    //--------------------------------------------- admin update menu -------------------------------------------
+    @Override
+    public ResponseResult jumpToUpdate(Long id) {
+
+        //query menu by id
+        Menu menu = getById(id);
+
+        //convert to MenuVo
+        MenuVo menuVo = BeanCopyUtil.copyBean(menu, MenuVo.class);
+
+        return ResponseResult.okResult(menuVo);
+    }
+    @Override
+    public ResponseResult updateMenu(Menu menu) {
+
+        if(menu.getId().equals(menu.getParentId())){
+            return ResponseResult.errorResult(AppHttpCodeEnum.SYSTEM_ERROR,"updating menu "+menu.getMenuName()+" fail, parent menu cannot be itself");
+        }
+
+        updateById(menu);
+        return ResponseResult.okResult();
+    }
+
+    //--------------------------------------------- admin delete menu -------------------------------------------
+    @Override
+    public ResponseResult deleteMenu(Long id) {
+
+        //check if menu has children
+        LambdaQueryWrapper<Menu> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Menu::getParentId,id);
+
+        //if has children, prompt msg
+        if(count(wrapper) != 0){
+            return ResponseResult.errorResult(AppHttpCodeEnum.SYSTEM_ERROR,"deletion not allowed,children menu exist");
+        }
+        //if no children, remove
+        removeById(id);
+        return ResponseResult.okResult();
+    }
+}
+```
+
+## 29. Blog Backstage - Role CRUD
+### **RoleController**
+```java
+package com.js.controller;
+
+import com.js.domain.ResponseResult;
+import com.js.domain.dto.RoleStatusDto;
+import com.js.domain.entity.Role;
+
+import com.js.service.MenuService;
+import com.js.service.RoleService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/system/role")
+public class RoleController {
+
+    @Autowired
+    private RoleService roleService;
+
+    @Autowired
+    private MenuService menuService;
+
+    @GetMapping("/list")
+    public ResponseResult listRole(Integer pageNum, Integer pageSize, Role role){
+        return roleService.listRole(pageNum,pageSize,role);
+    }
+
+    @PutMapping("/changeStatus")
+    public ResponseResult changeStatus(@RequestBody RoleStatusDto roleDto){
+        return roleService.changeStatus(roleDto);
+    }
+
+    @PostMapping
+    public ResponseResult addRole(@RequestBody Role role ){
+        return roleService.addRole(role);
+    }
+
+    @GetMapping("/{id}")
+    public ResponseResult<Role> getRoleInfo(@PathVariable Long id){
+        return roleService.getRoleInfo(id);
+    }
+
+    @PutMapping
+    public ResponseResult updateRole(@RequestBody Role role){
+        return roleService.updateRole(role);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseResult deleteRole(@PathVariable Long id){
+        return roleService.deleteRole(id);
+    }
+}
+```
+
+### **RoleServiceImpl**
+```java
+package com.js.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.js.domain.ResponseResult;
+import com.js.domain.dto.RoleStatusDto;
+import com.js.domain.entity.Role;
+import com.js.domain.entity.RoleMenu;
+import com.js.domain.vo.PageVo;
+import com.js.mapper.RoleMapper;
+import com.js.service.RoleMenuService;
+import com.js.service.RoleService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
+
+
+@Service("roleService")
+public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role> implements RoleService {
+
+    @Autowired
+    private RoleMenuService roleMenuService;
+
+    @Override
+    public List<String> selectRoleKeyByUserId(Long id) {
+
+        List<String> roleKey = new ArrayList<>();
+        //check if it's admin, if yes, role list only have 'admin'
+        if(id == 1){
+            roleKey.add("admin");
+            return roleKey;
+        }
+
+        //else, return corresponding role info
+        return getBaseMapper().selectRoleKeyById(id);
+    }
+
+    /**
+     * query role list
+     * @param pageNum
+     * @param pageSize
+     * @param role
+     * @return
+     */
+    @Override
+    public ResponseResult listRole(Integer pageNum, Integer pageSize, Role role) {
+
+        //fuzzy search for roleName, status
+        LambdaQueryWrapper<Role> wrapper = new LambdaQueryWrapper<>();
+        wrapper
+                .like(StringUtils.hasText(role.getRoleName()),Role::getRoleName,role.getRoleName())
+                .like(StringUtils.hasText(role.getStatus()),Role::getStatus,role.getStatus());
+
+        //set up page
+        Page<Role> page = new Page<>(pageNum,pageSize);
+        page(page,wrapper);
+        List<Role> roles = page.getRecords();
+
+        //convert to pageVo
+        PageVo pageVo = new PageVo(roles,page.getTotal());
+        return ResponseResult.okResult(pageVo);
+    }
+
+    /**
+     * change role's status
+     * @param roleDto
+     * @return
+     */
+    @Override
+    public ResponseResult changeStatus(RoleStatusDto roleDto) {
+
+        //get role, set corresponding status,update
+        Role role = getById(roleDto.getRoleId());
+        role.setStatus(roleDto.getStatus());
+        updateById(role);
+
+        return ResponseResult.okResult();
+    }
+
+    /**
+     * create new role
+     * @param role
+     * @return
+     */
+    @Override
+    public ResponseResult addRole(Role role) {
+
+        //save role into database
+        save(role);
+
+        //since menuId attribute is not in database, we use RoleMenu entity to restore menuId
+        addRoleMenu(role);
+        return ResponseResult.okResult();
+    }
+
+    /**
+     * create new role-menu connection
+     * @param role
+     */
+    public void addRoleMenu(Role role){
+
+        List<Long> menuIds = role.getMenuIds();
+        List<RoleMenu> roleMenus = null;
+        if(menuIds.size() > 0){
+            roleMenus = menuIds.stream()
+                    .map(menuId -> new RoleMenu(role.getId(), menuId))
+                    .collect(Collectors.toList());
+        }
+
+        roleMenuService.saveBatch(roleMenus);
+    }
+
+    /**
+     * get role info
+     * @param id
+     * @return
+     */
+    @Override
+    public ResponseResult<Role> getRoleInfo(Long id) {
+        Role role = getById(id);
+        return ResponseResult.okResult(role);
+    }
+
+    /**
+     * Updating into database
+     * @param role
+     * @return
+     */
+    @Override
+    public ResponseResult updateRole(Role role) {
+        //update role basic info into database
+        updateById(role);
+
+        //remove original Role-Menu connection
+        roleMenuService.removeRoleMenuByRoleId(role.getId());
+
+        //create new Role-Menu connection
+        addRoleMenu(role);
+        return ResponseResult.okResult();
+    }
+
+    /**
+     * delete role
+     * @param id
+     * @return
+     */
+    @Override
+    public ResponseResult deleteRole(Long id) {
+        removeById(id);
+        return ResponseResult.okResult();
+    }
+}
+```
+### **MenuController**
+```java
+package com.js.controller;
+
+import com.js.domain.ResponseResult;
+import com.js.domain.dto.MenuDto;
+import com.js.domain.entity.Menu;
+
+import com.js.service.MenuService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/system/menu")
+public class MenuController {
+
+    @Autowired
+    private MenuService menuService;
+
+    @GetMapping("/list")
+    public ResponseResult listMenu(MenuDto menuDto){
+        return menuService.listMenu(menuDto);
+    }
+
+    @PostMapping
+    public ResponseResult addMenu(@RequestBody Menu menu){
+        return menuService.addMenu(menu);
+    }
+
+    @GetMapping("/{id}")
+    public ResponseResult jumpToUpdate(@PathVariable Long id){
+        return menuService.jumpToUpdate(id);
+    }
+
+    @PutMapping
+    public ResponseResult updateMenu(@RequestBody Menu menu){
+        return menuService.updateMenu(menu);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseResult deleteMenu(@PathVariable Long id){
+        return menuService.deleteMenu(id);
+    }
+
+    //for adding new role
+    @GetMapping("/treeselect")
+    public ResponseResult treeSelect(){
+        return menuService.treeSelect();
+    }
+
+    //for updating role info
+    @GetMapping("/roleMenuTreeselect/{id}")
+    public ResponseResult getMenuListByRoleId(@PathVariable Long id){
+        return menuService.getMenuListByRoleId(id);
+    }
+}
+```
+### **MenuServiceImpl**
+```java
+/**
+     * TreeSelect all menus, for adding new role function
+     * @return
+     */
+    @Override
+    public ResponseResult treeSelect() {
+
+        List<Menu> menus = list();
+
+        List<MenuTreeVo> results = TreeVoBuilder(menus);
+
+        return ResponseResult.okResult(results);
+    }
+
+    public List<MenuTreeVo> TreeVoBuilder(List<Menu> menus){
+        //convert menus to menuTreeVos
+        List<MenuTreeVo> menuTreeVos = menus.stream()
+                .map(menu -> new MenuTreeVo(null, menu.getId(), menu.getMenuName(), menu.getParentId()))
+                .collect(Collectors.toList());
+
+        //set children for all menuTreeVos
+        List<MenuTreeVo> results = menuTreeVos.stream()
+                .filter(menu -> menu.getParentId().equals(0L))
+                .map(menu -> menu.setChildren(getMenuTreeVoChildren(menuTreeVos, menu)))
+                .collect(Collectors.toList());
+        return results;
+    }
+
+    /**
+     * get children of MenuTreeVo
+     * @param treeVos
+     * @param menuTreeVo
+     * @return
+     */
+    public List<MenuTreeVo> getMenuTreeVoChildren(List<MenuTreeVo> treeVos,MenuTreeVo menuTreeVo){
+        List<MenuTreeVo> menuTreeVos = treeVos.stream()
+                .filter(t -> t.getParentId().equals(menuTreeVo.getId()))
+                .map(t -> t.setChildren(getMenuTreeVoChildren(treeVos, t)))
+                .collect(Collectors.toList());
+        return menuTreeVos;
+    }
+
+    /**
+     * role menu tree for updating role info
+     * @param id
+     * @return
+     */
+    @Override
+    public ResponseResult getMenuListByRoleId(Long id) {
+
+        //get checkedKeys
+        List<Long> checkedKeys = null;
+        if(id==1){
+            //if it's admin, return all menus
+            checkedKeys = list().stream().map(menu -> menu.getId()).collect(Collectors.toList());
+        }else {
+            //if it's not admin, get corresponding menus
+            checkedKeys = getBaseMapper().selectMenuByRoleId(id);
+        }
+
+        //get MenuTreeVos
+        List<MenuTreeVo> menuTreeVos = TreeVoBuilder(list());
+
+        //encap and return
+        RoleMenuTreeVo result = new RoleMenuTreeVo(menuTreeVos,checkedKeys);
+
+        return ResponseResult.okResult(result);
+    }
+```
+### **RoleMenuServiceImpl**
+```java
+package com.js.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.js.domain.entity.RoleMenu;
+import com.js.mapper.RoleMenuMapper;
+import com.js.service.RoleMenuService;
+import org.springframework.stereotype.Service;
+
+
+@Service("roleMenuService")
+public class RoleMenuServiceImpl extends ServiceImpl<RoleMenuMapper, RoleMenu> implements RoleMenuService {
+
+    /**
+     * for updating role info, original connection between role and menu should be removed
+     * @param id
+     */
+    @Override
+    public void removeRoleMenuByRoleId(Long id) {
+        //find the RoleMenu connection
+        LambdaQueryWrapper<RoleMenu> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(RoleMenu::getRoleId,id);
+
+        //remove it
+        remove(wrapper);
+    }
+}
+```
+## 30. Blog Backstage - User CRUD
+
+## 31. Blog Backstage - Category CRUD
+
+## 32. Blog Backstage - Friend Link CRUD
