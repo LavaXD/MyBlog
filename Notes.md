@@ -9002,7 +9002,7 @@ Response format
 ![image](https://github.com/LavaXD/MyBlog/assets/103249988/4304d50c-12b1-40d5-8316-5b62a9dab34e)
 
 ## 28. Blog Backstage - Menu CRUD
-### **MenuController**
+### MenuController
 ```java
 package com.js.controller;
 
@@ -9047,7 +9047,7 @@ public class MenuController {
     }
 }
 ```
-### **MenuService**
+### MenuService
 ```java
 package com.js.service;
 
@@ -9076,7 +9076,7 @@ public interface MenuService extends IService<Menu> {
     ResponseResult deleteMenu(Long id);
 }
 ```
-### **MenuServiceImpl**
+### MenuServiceImpl
 ```java
 package com.js.service.impl;
 
@@ -9247,7 +9247,7 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
 ```
 
 ## 29. Blog Backstage - Role CRUD
-### **RoleController**
+### RoleController
 ```java
 package com.js.controller;
 
@@ -9302,7 +9302,7 @@ public class RoleController {
 }
 ```
 
-### **RoleServiceImpl**
+### RoleServiceImpl
 ```java
 package com.js.service.impl;
 
@@ -9462,7 +9462,7 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role> implements Ro
     }
 }
 ```
-### **MenuController**
+### MenuController
 ```java
 package com.js.controller;
 
@@ -9519,7 +9519,7 @@ public class MenuController {
     }
 }
 ```
-### **MenuServiceImpl**
+### MenuServiceImpl
 ```java
 /**
      * TreeSelect all menus, for adding new role function
@@ -9590,7 +9590,7 @@ public class MenuController {
         return ResponseResult.okResult(result);
     }
 ```
-### **RoleMenuServiceImpl**
+### RoleMenuServiceImpl
 ```java
 package com.js.service.impl;
 
@@ -9621,6 +9621,443 @@ public class RoleMenuServiceImpl extends ServiceImpl<RoleMenuMapper, RoleMenu> i
 }
 ```
 ## 30. Blog Backstage - User CRUD
+### AddUserDto
+```java
+package com.js.domain.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.List;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class AddUserDto {
+
+    private Long id;
+    private String userName;
+    private String nickName;
+    private String password;
+    private String email;
+    private String phonenumber;
+    private String sex;
+    private String status;
+    private List<Long> roleIds;
+}
+```
+### UserRoleVo
+```java
+package com.js.domain.vo;
+
+import com.js.domain.entity.Role;
+import com.js.domain.entity.User;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.List;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class UserRoleVo {
+
+    private List<Long> roleIds;
+
+    private List<Role> roles;
+
+    private User user;
+}
+```
+### UserController 
+```java
+package com.js.controller;
+
+import com.js.domain.ResponseResult;
+import com.js.domain.dto.AddUserDto;
+import com.js.domain.entity.User;
+import com.js.service.UserService;
+import org.apache.commons.math3.analysis.function.Add;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/system/user")
+public class UserController {
+
+    @Autowired
+    private UserService userService;
+
+    @GetMapping("/list")
+    public ResponseResult<User> listUser(Integer pageNum,Integer pageSize,User user){
+        return userService.listUser(pageNum,pageSize,user);
+    }
+
+    @PostMapping
+    public ResponseResult addUser(@RequestBody AddUserDto addUserDto){
+        return userService.addUser(addUserDto);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseResult deleteUser(@PathVariable Long id){
+        return userService.deleteUser(id);
+    }
+
+    @GetMapping("/{id}")
+    public ResponseResult getUserInfo(@PathVariable Long id){
+        return userService.getUserInfo(id);
+    }
+
+    @PutMapping
+    public ResponseResult updateUser(@RequestBody AddUserDto userDto){
+        return userService.updateUser(userDto);
+    }
+}
+```
+
+### UserService
+```java
+ package com.js.service;
+
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.js.domain.ResponseResult;
+import com.js.domain.dto.AddUserDto;
+import com.js.domain.entity.User;
+
+public interface UserService extends IService<User> {
+
+    ResponseResult userInfo();
+
+    ResponseResult updateUserInfo(User user);
+
+    ResponseResult register(User user);
+
+    ResponseResult<User> listUser(Integer pageNum, Integer pageSize, User user);
+
+    ResponseResult addUser(AddUserDto addUserDto);
+
+    ResponseResult deleteUser(Long id);
+
+    ResponseResult getUserInfo(Long id);
+
+    ResponseResult updateUser(AddUserDto userDto);
+}
+```
+### UserServiceImpl
+```java
+package com.js.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.js.Utils.BeanCopyUtil;
+import com.js.Utils.SecurityUtil;
+import com.js.domain.ResponseResult;
+import com.js.domain.dto.AddUserDto;
+import com.js.domain.entity.Role;
+import com.js.domain.entity.User;
+import com.js.domain.entity.UserRole;
+import com.js.domain.vo.PageVo;
+import com.js.domain.vo.UserInfoVo;
+import com.js.domain.vo.UserRoleVo;
+import com.js.enums.AppHttpCodeEnum;
+import com.js.exception.SystemException;
+import com.js.mapper.UserMapper;
+import com.js.service.RoleService;
+import com.js.service.UserRoleService;
+import com.js.service.UserService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+
+@Service("userService")
+public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
+
+    @Autowired
+    private UserRoleService userRoleService;
+
+    @Autowired
+    private RoleService roleService;
+
+    @Override
+    public ResponseResult userInfo() {
+
+        //Get current userId
+        Long userId = SecurityUtil.getUserId();
+
+        //inquire userInfo by userId
+        User user = getById(userId);
+
+        //encapsulate into UserInfoVo
+        UserInfoVo vo = BeanCopyUtil.copyBean(user,UserInfoVo.class);
+
+        return ResponseResult.okResult(vo);
+    }
+
+    @Override
+    public ResponseResult updateUserInfo(User user) {
+
+        updateById(user);
+
+        return ResponseResult.okResult();
+    }
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    @Override
+    public ResponseResult register(User user) {
+
+        //do non-empty check - email,username,pass can not be empty
+         if(!StringUtils.hasText(user.getUserName())){
+            throw new SystemException(AppHttpCodeEnum.USERNAME_NOT_NULL);
+         }
+        if(!StringUtils.hasText(user.getPassword())){
+            throw new SystemException(AppHttpCodeEnum.PASSWORD_NOT_NULL);
+        }
+        if(!StringUtils.hasText(user.getNickName())){
+            throw new SystemException(AppHttpCodeEnum.NICKNAME_NOT_NULL);
+        }
+        if(!StringUtils.hasText(user.getEmail())){
+            throw new SystemException(AppHttpCodeEnum.EMAIL_NOT_NULL);
+        }
+
+        //do duplication check, if the input email is existed in DB
+        if(userNameExist(user.getUserName())){
+            throw new SystemException(AppHttpCodeEnum.USERNAME_EXIST);
+        }
+        if(emailExist(user.getEmail())){
+            throw new SystemException(AppHttpCodeEnum.EMAIL_EXIST);
+        }
+        if(nickNameExist(user.getNickName())){
+            throw new SystemException(AppHttpCodeEnum.NICKNAME_EXIST);
+        }
+
+        //password encryption
+        String encodedPassword = passwordEncoder.encode(user.getPassword());
+        user.setPassword(encodedPassword);
+
+        //store into DB
+        save(user);
+
+        return ResponseResult.okResult();
+    }
+
+    private boolean phonenumberExist(String phonenumber) {
+        LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(User::getPhonenumber,phonenumber);
+        return count(queryWrapper) > 0;
+    }
+
+    private boolean nickNameExist(String nickName) {
+        LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(User::getNickName,nickName);
+        return count(queryWrapper) > 0;
+    }
+
+    private boolean emailExist(String email) {
+        LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(User::getEmail,email);
+        return count(queryWrapper) > 0;
+    }
+
+    private boolean userNameExist(String userName) {
+        LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(User::getUserName,userName);
+        return count(queryWrapper) > 0;
+    }
+
+    /**
+     * list all users in admin system
+     * @param pageNum
+     * @param pageSize
+     * @param user
+     * @return
+     */
+    @Override
+    public ResponseResult<User> listUser(Integer pageNum, Integer pageSize,User user) {
+
+        //fuzzy search
+        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
+        wrapper
+                .like(StringUtils.hasText(user.getUserName()),User::getUserName,user.getUserName())
+                .like(StringUtils.hasText(user.getPhonenumber()),User::getPhonenumber,user.getPhonenumber())
+                .like(StringUtils.hasText(user.getStatus()),User::getStatus,user.getStatus());
+
+        //set up page
+        Page<User> page = new Page<>(pageNum,pageSize);
+        page(page,wrapper);
+
+        //encap as PageVo and return
+        PageVo pageVo = new PageVo(page.getRecords(),page.getTotal());
+        return ResponseResult.okResult(pageVo);
+    }
+
+    /**
+     * add new user
+     * @param addUserDto
+     * @return
+     */
+    @Override
+    public ResponseResult addUser(AddUserDto addUserDto) {
+
+        //check if userName is null, and userName,phonenumber,email is not existed in DB
+        if(addUserDto.getUserName().equals("")){
+            throw new SystemException(AppHttpCodeEnum.USERNAME_NOT_NULL);
+        }
+        if(userNameExist(addUserDto.getUserName())){
+            throw new SystemException(AppHttpCodeEnum.USERNAME_EXIST);
+        }
+        if(phonenumberExist(addUserDto.getPhonenumber())){
+            throw new SystemException(AppHttpCodeEnum.PHONE_NUMBER_EXIST);
+        }
+        if(emailExist(addUserDto.getEmail())){
+            throw new SystemException(AppHttpCodeEnum.EMAIL_EXIST);
+        }
+
+        //encrypt password
+        String password = passwordEncoder.encode(addUserDto.getPassword());
+        addUserDto.setPassword(password);
+        //convert addUserDto to User
+        User user = BeanCopyUtil.copyBean(addUserDto, User.class);
+        //save to DB
+        save(user);
+        //save new user-role connection
+        userRoleService.addUserRole(user.getId(),addUserDto.getRoleIds());
+        return ResponseResult.okResult();
+    }
+
+    /**
+     * delete user by id
+     * @param id
+     * @return
+     */
+    @Override
+    public ResponseResult deleteUser(Long id) {
+
+        //remove user
+        removeById(id);
+        //remove user-role connection
+        userRoleService.deleteUserRoleByUserId(id);
+        return ResponseResult.okResult();
+    }
+
+    /**
+     * get user info when updating user info
+     * @param id
+     * @return
+     */
+    @Override
+    public ResponseResult getUserInfo(Long id) {
+        //get userRoles by userId
+        LambdaQueryWrapper<UserRole> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(UserRole::getUserId,id);
+        List<UserRole> userRoles = userRoleService.list(wrapper);
+
+        //use stream to get roleIds
+        List<Long> roleIds = userRoles.stream()
+                .map(userRole -> userRole.getRoleId())
+                .collect(Collectors.toList());
+
+        //get all normal roles
+        LambdaQueryWrapper<Role> roleWrapper = new LambdaQueryWrapper<>();
+        roleWrapper.eq(Role::getStatus, 0);
+        List<Role> roles = roleService.list(roleWrapper);
+
+        //encapsulate and return
+        UserRoleVo userRoleVo = new UserRoleVo(roleIds,roles,getById(id));
+        return ResponseResult.okResult(userRoleVo);
+    }
+
+    /**
+     * update userInfo into DB
+     * @param userDto
+     * @return
+     */
+    @Override
+    public ResponseResult updateUser(AddUserDto userDto) {
+        //convert userDto to user
+        User user = BeanCopyUtil.copyBean(userDto, User.class);
+        //update into DB
+        updateById(user);
+        //remove original user-role connection
+        userRoleService.deleteUserRoleByUserId(userDto.getId());
+        //add new user-role connection
+        userRoleService.addUserRole(userDto.getId(),userDto.getRoleIds());
+        return ResponseResult.okResult();
+    }
+}
+```
+### UserRoleService
+```java
+package com.js.service;
+
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.js.domain.entity.UserRole;
+
+import java.util.List;
+
+
+public interface UserRoleService extends IService<UserRole> {
+
+    void addUserRole(Long userId, List<Long> roleIds);
+
+    void deleteUserRoleByUserId(Long userId);
+}
+```
+
+### UserRoleServiceImpl
+```java
+package com.js.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.js.domain.entity.UserRole;
+import com.js.mapper.UserRoleMapper;
+import com.js.service.UserRoleService;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+
+@Service("userRoleService")
+public class UserRoleServiceImpl extends ServiceImpl<UserRoleMapper, UserRole> implements UserRoleService {
+
+    /**
+     * add new User-role connection when adding new user
+     * @param userId
+     * @param roleIds
+     */
+    @Override
+    public void addUserRole(Long userId, List<Long> roleIds) {
+
+        List<UserRole> userRoles = roleIds.stream()
+                .map(roleId -> new UserRole(userId, roleId))
+                .collect(Collectors.toList());
+
+        //save userRoles into DB
+        saveBatch(userRoles);
+    }
+
+    @Override
+    public void deleteUserRoleByUserId(Long userId) {
+
+        LambdaQueryWrapper<UserRole> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(UserRole::getUserId,userId);
+
+        remove(wrapper);
+    }
+}
+```
 
 ## 31. Blog Backstage - Category CRUD
 
