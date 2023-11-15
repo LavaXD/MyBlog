@@ -10060,5 +10060,295 @@ public class UserRoleServiceImpl extends ServiceImpl<UserRoleMapper, UserRole> i
 ```
 
 ## 31. Blog Backstage - Category CRUD
+### CategoryDto
+```java
+package com.js.domain.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class CategoryDto {
+
+    private Long id;
+    private String name;
+    private String description;
+    private String status;
+}
+```
+### CategoryController
+```java
+package com.js.controller;
+
+import com.alibaba.excel.EasyExcel;
+import com.alibaba.fastjson.JSON;
+import com.js.Utils.BeanCopyUtil;
+import com.js.Utils.WebUtils;
+import com.js.domain.ResponseResult;
+import com.js.domain.dto.CategoryDto;
+import com.js.domain.entity.Category;
+import com.js.domain.vo.CategoryVo;
+import com.js.domain.vo.ExcelCategoryVo;
+import com.js.domain.vo.PageVo;
+import com.js.enums.AppHttpCodeEnum;
+import com.js.service.CategoryService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PostAuthorize;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+import javax.servlet.http.HttpServletResponse;
+import java.util.List;
+
+@RestController
+@RequestMapping("/content/category")
+public class CategoryController {
+
+    @Autowired
+    private CategoryService categoryService;
+
+    @GetMapping("/listAllCategory")
+    public ResponseResult<CategoryVo> listAllCategory(){
+        return categoryService.listAllCategory();
+    }
+
+    @PreAuthorize("@ps.hasPermissions('content:category:export')")
+    @GetMapping("/export")
+    public void export(HttpServletResponse response){
+
+        try {
+            //config request head of the file
+            WebUtils.setDownLoadHeader("category.xlsx",response);
+
+            //get exporting data
+            List<Category> categories = categoryService.list();
+            List<ExcelCategoryVo> excelCategoryVos = BeanCopyUtil.copyBeanList(categories, ExcelCategoryVo.class);
+
+            //write data into excel
+            EasyExcel
+                    .write(response.getOutputStream(), ExcelCategoryVo.class).autoCloseStream(Boolean.FALSE)
+                    .sheet("article categories")
+                    .doWrite(excelCategoryVos);
+
+        } catch (Exception e) {
+            //if exception occur, respond json data
+            ResponseResult result = ResponseResult.errorResult(AppHttpCodeEnum.SYSTEM_ERROR);
+            WebUtils.renderString(response, JSON.toJSONString(result));
+        }
+    }
+
+    @GetMapping("/list")
+    public ResponseResult<PageVo> adminListCategory(Integer pageNum, Integer pageSize, Category category){
+        return categoryService.adminListCategory(pageNum,pageSize,category);
+    }
+
+    @PostMapping
+    public ResponseResult adminAddCategory(@RequestBody CategoryDto categoryDto){
+        return categoryService.adminAddCategory(categoryDto);
+    }
+
+    @GetMapping("/{id}")
+    public ResponseResult<Category> getCategoryInfo(@PathVariable Long id){
+        return categoryService.getCategoryInfo(id);
+    }
+
+    @PutMapping
+    public ResponseResult adminUpdateCategory(@RequestBody CategoryDto categoryDto){
+        return categoryService.adminUpdateCategory(categoryDto);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseResult adminDeleteCategory(@PathVariable Long id){
+        return categoryService.adminDeleteCategory(id);
+    }
+}
+```
+
+### CategoryService
+```java
+package com.js.service;
+
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.js.domain.ResponseResult;
+import com.js.domain.dto.CategoryDto;
+import com.js.domain.entity.Category;
+import com.js.domain.vo.CategoryVo;
+import com.js.domain.vo.PageVo;
+
+
+public interface CategoryService extends IService<com.js.domain.entity.Category> {
+
+    ResponseResult getCategoryList();
+
+    ResponseResult<CategoryVo> listAllCategory();
+
+    ResponseResult<PageVo> adminListCategory(Integer pageNum, Integer pageSize, Category category);
+
+    ResponseResult adminAddCategory(CategoryDto categoryDto);
+
+    ResponseResult<Category> getCategoryInfo(Long id);
+
+    ResponseResult adminUpdateCategory(CategoryDto categoryDto);
+
+    ResponseResult adminDeleteCategory(Long id);
+}
+```
+
+### CategoryServiceImpl
+```java
+package com.js.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.js.Utils.BeanCopyUtil;
+import com.js.constants.SystemConstants;
+import com.js.domain.ResponseResult;
+import com.js.domain.dto.CategoryDto;
+import com.js.domain.entity.Article;
+import com.js.domain.vo.CategoryVo;
+import com.js.domain.vo.PageVo;
+import com.js.mapper.CategoryMapper;
+import com.js.service.ArticleService;
+import com.js.service.CategoryService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.stereotype.Service;
+import com.js.domain.entity.Category;
+import org.springframework.util.StringUtils;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+
+@Service("categoryService")
+public class CategoryServiceImpl extends ServiceImpl<CategoryMapper, Category> implements CategoryService {
+
+    @Autowired
+    private ArticleService articleService;
+
+    @Override
+    public ResponseResult getCategoryList() {
+
+        //inquire article table and get articles with normal status
+        LambdaQueryWrapper<Article> articleWrapper = new LambdaQueryWrapper<>();
+        articleWrapper.eq(Article::getStatus, SystemConstants.ARTICLE_STATUS_NORMAL);
+        List<Article> articleList = articleService.list(articleWrapper);
+
+        //get distinct category id
+        Set<Long> categoryIds = articleList.stream()
+                .map(article -> article.getCategoryId())
+                .collect(Collectors.toSet());
+
+
+        //inquire category table
+        List<Category> categories = listByIds(categoryIds);
+
+        categories.stream()
+                .filter(category -> SystemConstants.STATUS_NORMAL.equals(category.getStatus()))
+                .collect(Collectors.toList());
+
+        //encapsulate vo
+        List<CategoryVo> categoryVos = BeanCopyUtil.copyBeanList(categories, CategoryVo.class);
+
+        return ResponseResult.okResult(categoryVos);
+    }
+
+    // ---------------------------------- getAllCategories for writing blog ---------------------------
+    @Override
+    public ResponseResult<CategoryVo> listAllCategory() {
+
+        //query all categories whose status is normal
+        LambdaQueryWrapper<Category> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(Category::getStatus,SystemConstants.STATUS_NORMAL);
+        List<Category> list = list(queryWrapper);
+
+        //convert to categoryVos
+        List<CategoryVo> categoryVos = BeanCopyUtil.copyBeanList(list, CategoryVo.class);
+
+        return ResponseResult.okResult(categoryVos);
+    }
+
+    /**
+     * admin system list all categories
+     * @param pageNum
+     * @param pageSize
+     * @param category
+     * @return
+     */
+    @Override
+    public ResponseResult<PageVo> adminListCategory(Integer pageNum, Integer pageSize, Category category) {
+
+        //fuzzy search
+        LambdaQueryWrapper<Category> categoryWrapper = new LambdaQueryWrapper<>();
+        categoryWrapper
+                .like(StringUtils.hasText(category.getName()),Category::getName,category.getName())
+                .like(StringUtils.hasText(category.getStatus()),Category::getStatus,category.getStatus());
+
+        //set up page
+        Page<Category> page = new Page<>(pageNum,pageSize);
+        page(page,categoryWrapper);
+
+        //return pageVo
+        PageVo pageVo = new PageVo(page.getRecords(),page.getTotal());
+        return ResponseResult.okResult(pageVo);
+    }
+
+    /**
+     * admin system add new category
+     * @param categoryDto
+     * @return
+     */
+    @Override
+    public ResponseResult adminAddCategory(CategoryDto categoryDto) {
+        //convert categoryDto to category
+        Category category = BeanCopyUtil.copyBean(categoryDto, Category.class);
+        //save to DB
+        save(category);
+        return ResponseResult.okResult();
+    }
+
+    /**
+     * admin system update category, get category info for updating
+     * @param id
+     * @return
+     */
+    @Override
+    public ResponseResult<Category> getCategoryInfo(Long id) {
+        Category category = getById(id);
+        return ResponseResult.okResult(category);
+    }
+
+    /**
+     * admin system update category
+     * @param categoryDto
+     * @return
+     */
+    @Override
+    public ResponseResult adminUpdateCategory(CategoryDto categoryDto) {
+        //convert categoryDto to category
+        Category category = BeanCopyUtil.copyBean(categoryDto, Category.class);
+        //update into DB
+        updateById(category);
+        return ResponseResult.okResult();
+    }
+
+    /**
+     * admin system delete category
+     * @param id
+     * @return
+     */
+    @Override
+    public ResponseResult adminDeleteCategory(Long id) {
+        removeById(id);
+        return ResponseResult.okResult();
+    }
+}
+```
 
 ## 32. Blog Backstage - Friend Link CRUD
