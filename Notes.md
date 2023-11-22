@@ -10352,3 +10352,37 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryMapper, Category> i
 ```
 
 ## 32. Blog Backstage - Friend Link CRUD
+
+## 33. Packaging & Deployment
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/baea1a21-4eed-47e5-978c-f2155417eae0)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/de67b66f-4ade-4860-8917-4d6aa8ccfd7f)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/401af51a-d75e-422c-897a-7b5940910f8b)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/10a214c2-936b-40e9-b3db-3c787c1a3e7e)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/acc68e9b-6ddd-4042-b232-82307dfbaa6d)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/60e2eba7-1724-4f2a-8ad5-68fa9204719a)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/ce56b0fa-d721-4910-9f14-37e51827cf01)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/8e5beba6-4faa-4498-8289-e2abd8afe704)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/0c46b8aa-42c7-4219-bc76-b6ae4d7ce936)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/fc2b39a0-0728-4d12-bb71-4b4c7378394c)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/03108e7e-ff5d-46a9-b456-0b0e26428611)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/a4c03ea1-9f16-43ba-bb1f-2a2d64d826ff)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/8cb3e629-3234-4fda-985b-8b47cb5a953b)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/e8e87a37-b600-4c66-b5b5-9f9922b0409a)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/755e5e75-4557-4705-9c84-47eaae1c6577)
+
+![image](https://github.com/LavaXD/MyBlog/assets/103249988/2c91db3f-3fb3-46d9-a0d4-9bb079b0026f)
